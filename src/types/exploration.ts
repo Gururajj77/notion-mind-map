@@ -4,5 +4,5 @@ export const GRAPH_LEVEL_LABELS: Record<GraphLevel, string> = {
   0: 'Dashboard',
   1: 'Neighborhood',
   2: 'Cluster',
-  3: 'Entire Graph',
+  3: 'Full Graph',
 };

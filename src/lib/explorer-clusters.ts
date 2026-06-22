@@ -1,4 +1,8 @@
+import { EXPLORER_CLUSTER_ROOTS } from './cluster-config';
+import { getClusterTheme } from './cluster-colors';
 import type { NotionPage } from '../types/notion';
+import type { GraphNode } from '../types/graph';
+import { NODE_HEIGHT, NODE_WIDTH } from '../services/dagre-layout';
 
 export interface ExplorerCluster {
   id: string;
@@ -43,14 +47,7 @@ function cluster(
  */
 export function buildExplorerClusters(pages: NotionPage[]): ExplorerCluster[] {
   const pageIds = new Set(pages.map((p) => p.id));
-  const roots = [
-    { id: 'cluster_career', label: 'Career', rootId: 'page_career' },
-    { id: 'cluster_creator', label: 'Creator', rootId: 'page_content' },
-    { id: 'cluster_health', label: 'Health', rootId: 'page_health' },
-    { id: 'cluster_learning', label: 'Learning', rootId: 'page_learning' },
-    { id: 'cluster_financial', label: 'Relationships', rootId: 'page_financial' },
-    { id: 'cluster_home', label: 'Home', rootId: 'page_home' },
-  ];
+  const roots = EXPLORER_CLUSTER_ROOTS;
 
   return roots
     .filter((r) => pageIds.has(r.rootId))
@@ -97,4 +94,57 @@ export function capClusterNodes(
   }
 
   return result;
+}
+
+const REGION_PADDING = 56;
+
+export interface ExplorerClusterBounds {
+  id: string;
+  label: string;
+  color: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Soft Heptabase-style regions behind semantic clusters. */
+export function computeExplorerClusterBounds(
+  pages: NotionPage[],
+  nodes: GraphNode[],
+): ExplorerClusterBounds[] {
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+
+  return buildExplorerClusters(pages)
+    .map((cluster) => {
+      const theme = getClusterTheme(cluster.id);
+      const clusterNodes = cluster.nodeIds
+        .map((id) => nodeMap.get(id))
+        .filter((n): n is GraphNode => n != null);
+
+      if (clusterNodes.length === 0) return null;
+
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+
+      for (const node of clusterNodes) {
+        minX = Math.min(minX, node.position.x);
+        minY = Math.min(minY, node.position.y);
+        maxX = Math.max(maxX, node.position.x + NODE_WIDTH);
+        maxY = Math.max(maxY, node.position.y + NODE_HEIGHT);
+      }
+
+      return {
+        id: cluster.id,
+        label: cluster.label,
+        color: theme?.color ?? '#64748B',
+        x: minX - REGION_PADDING,
+        y: minY - REGION_PADDING,
+        width: maxX - minX + REGION_PADDING * 2,
+        height: maxY - minY + REGION_PADDING * 2,
+      };
+    })
+    .filter((b): b is ExplorerClusterBounds => b != null);
 }

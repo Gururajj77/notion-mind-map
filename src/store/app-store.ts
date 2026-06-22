@@ -23,6 +23,7 @@ interface AppState {
   centerOnNodeId: string | null;
   darkMode: boolean;
   hoveredNodeId: string | null;
+  hoveredClusterId: string | null;
   pinnedNodeIds: string[];
   recentEntries: RecentEntry[];
   positionOverrides: PositionOverrides;
@@ -38,6 +39,7 @@ interface AppState {
   setSearchOpen: (open: boolean) => void;
   setDarkMode: (enabled: boolean) => void;
   setHoveredNodeId: (id: string | null) => void;
+  setHoveredClusterId: (id: string | null) => void;
   togglePin: (id: string) => void;
   selectAndCenter: (id: string) => void;
   clearCenter: () => void;
@@ -51,13 +53,14 @@ interface AppState {
 export const useAppStore = create<AppState>((set, get) => ({
   pages: [],
   selectedNodeId: null,
-  graphLevel: 0,
+  graphLevel: 3,
   expandedClusterId: null,
   pathMode: false,
   searchOpen: false,
   centerOnNodeId: null,
   darkMode: getInitialDarkMode(),
   hoveredNodeId: null,
+  hoveredClusterId: null,
   pinnedNodeIds: loadPinnedIds(),
   recentEntries: loadRecentEntries(),
   positionOverrides: {},
@@ -87,11 +90,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   goHome: () =>
     set({
       selectedNodeId: null,
-      graphLevel: 0,
+      graphLevel: 3,
       expandedClusterId: null,
       pathMode: false,
       centerOnNodeId: null,
       hoveredNodeId: null,
+      hoveredClusterId: null,
     }),
   expandCluster: (clusterId, rootId) => {
     const recent = pushRecentEntry(rootId);
@@ -128,6 +132,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ darkMode: enabled });
   },
   setHoveredNodeId: (id) => set({ hoveredNodeId: id }),
+  setHoveredClusterId: (id) => set({ hoveredClusterId: id }),
   togglePin: (id) => {
     const current = get().pinnedNodeIds;
     const next = current.includes(id)

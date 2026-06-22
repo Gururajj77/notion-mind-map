@@ -1,4 +1,5 @@
 import { getExplorerCluster, capClusterNodes } from '../lib/explorer-clusters';
+import { edgeTouchesAnyNode, edgeTouchesNode } from '../lib/node-connections';
 import type { GraphLevel } from '../types/exploration';
 import type { NotionPage } from '../types/notion';
 import type { EdgeType, GraphEdge } from '../types/graph';
@@ -88,6 +89,17 @@ export function getVisibleNodeIds(
   return new Set();
 }
 
+function isFocusMode(graphLevel: GraphLevel, pathMode: boolean): boolean {
+  return (graphLevel === 1 || graphLevel === 2) && !pathMode;
+}
+
+function getActiveNodeId(
+  selectedNodeId: string | null,
+  hoveredNodeId: string | null,
+): string | null {
+  return hoveredNodeId ?? selectedNodeId;
+}
+
 export function shouldShowEdge(
   edge: GraphEdge,
   graphLevel: GraphLevel,
@@ -104,34 +116,37 @@ export function shouldShowEdge(
   }
 
   const edgeType = edge.data?.edgeType as EdgeType | undefined;
-
-  if (graphLevel === 3) {
-    return edgeType === 'parent';
-  }
+  const activeId = getActiveNodeId(selectedNodeId, hoveredNodeId);
+  const focus = isFocusMode(graphLevel, pathMode);
 
   if (edgeType === 'parent') {
     return true;
   }
 
-  if (edgeType === 'mention') {
-    return graphLevel === 1 || graphLevel === 2 || pathMode;
-  }
-
   if (edgeType === 'relation') {
-    if (graphLevel !== 1) {
-      return false;
+    if (focus) {
+      return true;
     }
-    if (pathMode) {
-      return pathNodeIds.has(edge.source) && pathNodeIds.has(edge.target);
+    if (pathMode && edgeTouchesAnyNode(edge, pathNodeIds)) {
+      return true;
     }
-    const activeId = hoveredNodeId ?? selectedNodeId;
-    if (!activeId) {
-      return false;
+    if (activeId && edgeTouchesNode(edge, activeId)) {
+      return true;
     }
-    return edge.source === activeId || edge.target === activeId;
+    return graphLevel === 3;
   }
 
-  return true;
+  if (edgeType === 'mention') {
+    if (focus) {
+      return true;
+    }
+    if (activeId && edgeTouchesNode(edge, activeId)) {
+      return true;
+    }
+    return false;
+  }
+
+  return false;
 }
 
 export function getEdgeOpacity(
@@ -143,28 +158,42 @@ export function getEdgeOpacity(
   isPathEdge: boolean,
 ): number {
   const edgeType = edge.data?.edgeType as EdgeType | undefined;
-  const base = (edge.style?.opacity as number | undefined) ?? 1;
-
-  if (isPathEdge && pathMode) {
-    return 1;
-  }
+  const activeId = getActiveNodeId(selectedNodeId, hoveredNodeId);
+  const focus = isFocusMode(graphLevel, pathMode);
+  const isSelected = Boolean(selectedNodeId && !hoveredNodeId);
+  const touchesActive = Boolean(activeId && edgeTouchesNode(edge, activeId));
 
   if (edgeType === 'parent') {
-    return graphLevel === 3 ? 0.35 : 0.12;
-  }
-
-  if (edgeType === 'mention') {
-    return 0.4;
+    if (isPathEdge && pathMode) {
+      return 0.45;
+    }
+    return 0.12;
   }
 
   if (edgeType === 'relation') {
-    const activeId = hoveredNodeId ?? selectedNodeId;
-    const touches =
-      activeId && (edge.source === activeId || edge.target === activeId);
-    return touches ? 0.85 : 0;
+    if (focus) {
+      return 0.4;
+    }
+    if (touchesActive) {
+      return isSelected ? 0.65 : 0.5;
+    }
+    if (graphLevel === 3) {
+      return 0.18;
+    }
+    return 0;
   }
 
-  return base;
+  if (edgeType === 'mention') {
+    if (focus) {
+      return 0.28;
+    }
+    if (touchesActive) {
+      return isSelected ? 0.38 : 0.28;
+    }
+    return 0;
+  }
+
+  return 0;
 }
 
 export function getBreadcrumb(pages: NotionPage[], selectedNodeId: string | null) {

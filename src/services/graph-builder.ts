@@ -1,5 +1,6 @@
 import { MarkerType } from '@xyflow/react';
 import { getClusterCount } from '../lib/cluster-builder';
+import { buildPageClusterColorMap } from '../lib/cluster-colors';
 import {
   getEditedLabel,
   getLinkCount,
@@ -26,7 +27,7 @@ function createEdge(
       style: {
         stroke: 'var(--edge-parent)',
         strokeWidth: 1,
-        opacity: 0.22,
+        opacity: 0.12,
       },
       markerEnd: undefined,
       markerStart: undefined,
@@ -42,10 +43,10 @@ function createEdge(
       data: { edgeType },
       style: {
         stroke: 'var(--edge-relation)',
-        strokeWidth: 2.25,
-        opacity: 0.85,
+        strokeWidth: 1.5,
+        opacity: 0.35,
       },
-      animated: true,
+      animated: false,
       markerEnd: {
         type: MarkerType.ArrowClosed,
         color: 'var(--edge-relation)',
@@ -108,23 +109,33 @@ function addUniqueEdge(
 }
 
 export function buildGraphNodes(pages: NotionPage[]): GraphNode[] {
-  return pages.map((page) => ({
-    id: page.id,
-    position: { x: 0, y: 0 },
-    data: {
-      label: page.title,
-      pageId: page.id,
-      parentId: page.parentId,
-      icon: getPageIcon(page),
-      preview: getPagePreview(page),
-      tags: page.tags,
-      relationCount: page.relationIds.length,
-      mentionCount: page.mentionIds.length,
-      linkCount: getLinkCount(page),
-      editedLabel: getEditedLabel(page),
-    },
-    type: 'pageNode',
-  }));
+  const clusterColors = buildPageClusterColorMap(pages);
+
+  return pages.map((page) => {
+    const cluster = clusterColors.get(page.id);
+
+    return {
+      id: page.id,
+      position: { x: 0, y: 0 },
+      data: {
+        label: page.title,
+        pageId: page.id,
+        parentId: page.parentId,
+        icon: getPageIcon(page),
+        preview: getPagePreview(page),
+        tags: page.tags,
+        relationCount: page.relationIds.length,
+        mentionCount: page.mentionIds.length,
+        linkCount: getLinkCount(page),
+        editedLabel: getEditedLabel(page),
+        primaryClusterColor: cluster?.primary,
+        clusterColors: cluster?.colors ?? [cluster?.primary ?? ''],
+        clusterColorExtra: cluster?.extraCount ?? 0,
+        clusterId: cluster?.clusterId ?? null,
+      },
+      type: 'pageNode',
+    };
+  });
 }
 
 export function buildGraphEdges(pages: NotionPage[]): GraphEdge[] {

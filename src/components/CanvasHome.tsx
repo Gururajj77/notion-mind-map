@@ -8,7 +8,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import ClusterExplorerCard from '@/components/ClusterExplorerCard';
 import PageAvatar from '@/components/PageAvatar';
 import { buildExplorerClusters } from '@/lib/explorer-clusters';
 import { formatOpenedAgo } from '@/lib/format-time';
@@ -22,6 +22,7 @@ export default function CanvasHome() {
   const setSearchOpen = useAppStore((s) => s.setSearchOpen);
   const exploreNode = useAppStore((s) => s.exploreNode);
   const expandCluster = useAppStore((s) => s.expandCluster);
+  const setHoveredClusterId = useAppStore((s) => s.setHoveredClusterId);
 
   const pageMap = new Map(pages.map((p) => [p.id, p]));
   const clusters = buildExplorerClusters(pages);
@@ -124,21 +125,13 @@ export default function CanvasHome() {
           </h3>
           <div className="grid gap-2 sm:grid-cols-2">
             {clusters.map((cluster) => (
-              <Card
+              <ClusterExplorerCard
                 key={cluster.id}
-                className="cursor-pointer rounded-xl border-border/60 py-0 shadow-none transition-all hover:border-border hover:bg-accent/20"
+                cluster={cluster}
                 onClick={() => expandCluster(cluster.id, cluster.rootId)}
-              >
-                <CardContent className="flex items-center justify-between px-4 py-3.5">
-                  <div>
-                    <p className="text-sm font-medium">{cluster.label}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {cluster.nodeIds.length} nodes
-                    </p>
-                  </div>
-                  <ChevronRight className="size-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
+                onHoverStart={() => setHoveredClusterId(cluster.id)}
+                onHoverEnd={() => setHoveredClusterId(null)}
+              />
             ))}
           </div>
         </section>

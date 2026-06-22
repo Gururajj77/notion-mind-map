@@ -16,6 +16,11 @@ export interface GraphNodeData {
   dimmed?: boolean;
   dimOpacity?: number;
   onPath?: boolean;
+  primaryClusterColor?: string;
+  clusterColors?: string[];
+  clusterColorExtra?: number;
+  clusterId?: string | null;
+  clusterHighlighted?: boolean;
   [key: string]: unknown;
 }
 

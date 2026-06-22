@@ -72,8 +72,8 @@ export default function Home() {
       <Sidebar />
       <main className="relative h-full min-h-0 min-w-0 flex-1">
         <Graph nodes={graph.nodes} edges={graph.edges} visibleNodeIds={visibleNodeIds} />
+        <NodeDetails />
       </main>
-      <NodeDetails />
       <SearchCommand />
     </div>
   );

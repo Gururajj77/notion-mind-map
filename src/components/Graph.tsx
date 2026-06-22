@@ -14,8 +14,10 @@ import {
 import '@xyflow/react/dist/style.css';
 import BreadcrumbNav from '@/components/BreadcrumbNav';
 import CanvasHome from '@/components/CanvasHome';
-import GlobalViewWarning from '@/components/GlobalViewWarning';
+import ClusterBackground from '@/components/ClusterBackground';
 import GraphStats from '@/components/GraphStats';
+import { computeExplorerClusterBounds } from '@/lib/explorer-clusters';
+import { getConnectedNodeIds } from '@/lib/node-connections';
 import { useAppStore } from '@/store/app-store';
 import { NODE_HEIGHT, NODE_WIDTH } from '@/services/dagre-layout';
 import {
@@ -73,6 +75,22 @@ function GraphCanvas({ nodes, edges, visibleNodeIds }: GraphProps) {
     () => (selectedNodeId ? getPathEdgePairs(selectedNodeId, pages) : []),
     [selectedNodeId, pages],
   );
+
+  const activeNodeId = hoveredNodeId ?? selectedNodeId;
+
+  const connectedNodeIds = useMemo(() => {
+    if (!activeNodeId) {
+      return null;
+    }
+    return getConnectedNodeIds(activeNodeId, pages);
+  }, [activeNodeId, pages]);
+
+  const clusterRegions = useMemo(() => {
+    if (graphLevel !== 3) {
+      return [];
+    }
+    return computeExplorerClusterBounds(pages, nodes);
+  }, [graphLevel, pages, nodes]);
 
   const visibleStats = useMemo(() => {
     if (graphLevel === 0) {
@@ -158,52 +176,28 @@ function GraphCanvas({ nodes, edges, visibleNodeIds }: GraphProps) {
 
   const getNodeDimState = useCallback(
     (nodeId: string) => {
-      const isSelected = nodeId === selectedNodeId;
       const onPath = pathNodeIds.has(nodeId);
 
       if (pathMode) {
         return {
           dimmed: !onPath,
-          dimOpacity: onPath ? 1 : 0.05,
+          dimOpacity: onPath ? 1 : 0.45,
           onPath,
         };
       }
 
-      if (graphLevel === 2 && visibleNodeIds?.has(nodeId)) {
-        return {
-          dimmed: false,
-          dimOpacity: 1,
-          onPath,
-        };
-      }
-
-      if (graphLevel === 1 && visibleNodeIds?.has(nodeId)) {
-        return {
-          dimmed: false,
-          dimOpacity: 1,
-          onPath,
-        };
-      }
-
-      if (graphLevel === 3) {
-        return {
-          dimmed: Boolean(selectedNodeId && !isSelected),
-          dimOpacity: isSelected ? 1 : 0.05,
-          onPath,
-        };
-      }
-
-      if (selectedNodeId && !isSelected) {
-        return {
-          dimmed: true,
-          dimOpacity: onPath ? 0.75 : 0.05,
-          onPath,
-        };
+      if (graphLevel === 3 && selectedNodeId && !hoveredNodeId) {
+        const isSelected = nodeId === selectedNodeId;
+        const isConnected = connectedNodeIds?.has(nodeId);
+        if (isSelected || isConnected) {
+          return { dimmed: false, dimOpacity: 1, onPath };
+        }
+        return { dimmed: true, dimOpacity: 0.55, onPath };
       }
 
       return { dimmed: false, dimOpacity: 1, onPath };
     },
-    [pathMode, pathNodeIds, graphLevel, visibleNodeIds, selectedNodeId],
+    [pathMode, pathNodeIds, graphLevel, selectedNodeId, hoveredNodeId, connectedNodeIds],
   );
 
   useEffect(() => {
@@ -219,11 +213,11 @@ function GraphCanvas({ nodes, edges, visibleNodeIds }: GraphProps) {
             ...node.data,
             ...dimState,
           },
-          style: { transition: 'opacity 450ms ease' },
+          style: { transition: 'opacity 150ms ease, box-shadow 150ms ease' },
         };
       }),
     );
-  }, [nodes, selectedNodeId, getNodeDimState, setFlowNodes]);
+  }, [nodes, selectedNodeId, hoveredNodeId, getNodeDimState, setFlowNodes]);
 
   useEffect(() => {
     setFlowEdges(
@@ -254,16 +248,14 @@ function GraphCanvas({ nodes, edges, visibleNodeIds }: GraphProps) {
 
           return {
             ...edge,
-            animated:
-              (edge.data?.edgeType === 'relation' && opacity > 0.5) ||
-              (isPathEdge && pathMode),
+            animated: false,
             style: {
               ...edge.style,
               opacity,
               strokeWidth: isPathEdge && pathMode
-                ? ((edge.style?.strokeWidth as number) ?? 1) + 1
+                ? ((edge.style?.strokeWidth as number) ?? 1) + 0.5
                 : edge.style?.strokeWidth,
-              transition: 'opacity 450ms ease, stroke-width 300ms ease',
+              transition: 'opacity 150ms ease, stroke-width 150ms ease',
             },
           };
         }),
@@ -328,6 +320,10 @@ function GraphCanvas({ nodes, edges, visibleNodeIds }: GraphProps) {
 
   const handleNodeClick: NodeMouseHandler<GraphNode> = useCallback(
     (_, node) => {
+      if (graphLevel === 3) {
+        selectNode(node.id);
+        return;
+      }
       if (node.id === selectedNodeId && graphLevel === 1) {
         selectNode(node.id);
         return;
@@ -391,12 +387,12 @@ function GraphCanvas({ nodes, edges, visibleNodeIds }: GraphProps) {
             size={1}
             color="var(--canvas-dot)"
           />
+          {graphLevel === 3 && <ClusterBackground clusters={clusterRegions} />}
           <Controls showInteractive={false} position="bottom-left" className="!left-5 !bottom-5" />
         </ReactFlow>
       )}
 
       <BreadcrumbNav />
-      <GlobalViewWarning />
 
       {visibleStats && graphLevel > 0 && (
         <GraphStats

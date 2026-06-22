@@ -1,13 +1,11 @@
-import type { ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ExternalLink, Pin } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { ExternalLink, Pin, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import PageAvatar from '@/components/PageAvatar';
-import { formatCreated, formatEdited } from '@/lib/format-time';
+import ClusterColorStrip from '@/components/ClusterColorStrip';
+import { formatEdited } from '@/lib/format-time';
+import { buildPageClusterColorMap } from '@/lib/cluster-colors';
 import { getPagePreview } from '@/lib/page-display';
 import { useAppStore } from '@/store/app-store';
 import type { NotionPage } from '@/types/notion';
@@ -16,59 +14,63 @@ function getPageById(pages: NotionPage[], id: string): NotionPage | undefined {
   return pages.find((p) => p.id === id);
 }
 
-function ConnectionList({
-  items,
-  onSelect,
+function LinkChip({
+  label,
+  onClick,
 }: {
-  items: Array<{ id: string; title: string }>;
-  onSelect: (id: string) => void;
+  label: string;
+  onClick: () => void;
 }) {
-  if (items.length === 0) {
-    return <p className="text-[13px] text-muted-foreground">None</p>;
-  }
-
   return (
-    <div className="flex flex-col gap-2.5">
-      {items.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          onClick={() => onSelect(item.id)}
-          className="rounded-xl border border-border/50 bg-muted/15 px-4 py-3 text-left text-[13px] text-foreground/85 transition-colors hover:bg-accent/40"
-        >
-          {item.title}
-        </button>
-      ))}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-md border border-border/50 bg-muted/30 px-2 py-1 text-left text-[11px] text-foreground/80 transition-colors hover:bg-accent/50 hover:text-foreground"
+    >
+      {label}
+    </button>
   );
 }
 
-function Section({
+function ConnectionGroup({
   label,
-  children,
+  items,
+  onSelect,
 }: {
   label: string;
-  children: ReactNode;
+  items: Array<{ id: string; title: string }>;
+  onSelect: (id: string) => void;
 }) {
+  if (items.length === 0) return null;
+
   return (
-    <section className="space-y-3.5">
-      <h3 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+    <div className="space-y-1.5">
+      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">
         {label}
-      </h3>
-      {children}
-    </section>
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map((item) => (
+          <LinkChip key={item.id} label={item.title} onClick={() => onSelect(item.id)} />
+        ))}
+      </div>
+    </div>
   );
 }
 
 export default function NodeDetails() {
   const pages = useAppStore((s) => s.pages);
   const selectedNodeId = useAppStore((s) => s.selectedNodeId);
+  const graphLevel = useAppStore((s) => s.graphLevel);
   const pinnedNodeIds = useAppStore((s) => s.pinnedNodeIds);
   const exploreNode = useAppStore((s) => s.exploreNode);
+  const selectNode = useAppStore((s) => s.selectNode);
   const togglePin = useAppStore((s) => s.togglePin);
   const page = pages.find((p) => p.id === selectedNodeId) ?? null;
 
-  const parent = page?.parentId ? getPageById(pages, page.parentId) : null;
+  if (graphLevel === 0) {
+    return null;
+  }
+
   const children =
     page == null
       ? []
@@ -96,137 +98,93 @@ export default function NodeDetails() {
   const allMentions = [...new Map(mentionedBy.map((item) => [item.id, item])).values()];
   const preview = page ? getPagePreview(page) : '';
   const isPinned = page ? pinnedNodeIds.includes(page.id) : false;
+  const clusterInfo = page ? buildPageClusterColorMap(pages).get(page.id) : null;
+  const hasConnections =
+    children.length > 0 || allRelations.length > 0 || allMentions.length > 0;
 
   return (
-    <AnimatePresence mode="wait">
-      {page ? (
-        <motion.aside
+    <AnimatePresence>
+      {page && (
+        <motion.div
           key={page.id}
-          initial={{ x: 28, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: 28, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 360, damping: 34 }}
-          className="flex w-[360px] shrink-0 flex-col border-l border-border/60 bg-card"
+          initial={{ opacity: 0, y: -8, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -8, scale: 0.98 }}
+          transition={{ duration: 0.15, ease: 'easeOut' }}
+          className="pointer-events-auto absolute top-5 right-5 z-30 flex w-[min(340px,calc(100vw-2rem))] max-h-[min(420px,calc(100vh-6rem))] flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/95 shadow-lg backdrop-blur-xl"
         >
-          <div className="px-8 py-9">
-            <div className="flex items-start gap-4">
-              <PageAvatar page={page} className="text-[32px]" initialClassName="size-14 text-xl" />
-              <div className="min-w-0 flex-1">
-                <h2 className="text-base font-semibold tracking-tight">{page.title}</h2>
-                {page.tags.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {page.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="font-normal capitalize">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
+          {clusterInfo && (
+            <ClusterColorStrip colors={clusterInfo.colors} className="rounded-none" />
+          )}
+
+          <div className="flex items-start gap-2 border-b border-border/50 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate text-[15px] font-semibold leading-tight tracking-tight">
+                {page.title}
+              </h2>
+              {clusterInfo?.clusterLabel && (
+                <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <span
+                    className="size-1.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: clusterInfo.primary }}
+                  />
+                  {clusterInfo.clusterLabel}
+                </p>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-0.5">
               <Button
                 variant="ghost"
                 size="icon"
-                className={cn(
-                  'size-9 shrink-0 rounded-xl',
-                  isPinned && 'text-primary',
-                )}
+                className={cn('size-8 rounded-lg', isPinned && 'text-primary')}
                 onClick={() => togglePin(page.id)}
                 aria-label={isPinned ? 'Unpin page' : 'Pin page'}
               >
-                <Pin className={cn('size-4', isPinned && 'fill-current')} />
+                <Pin className={cn('size-3.5', isPinned && 'fill-current')} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 rounded-lg text-muted-foreground"
+                onClick={() => selectNode(null)}
+                aria-label="Close"
+              >
+                <X className="size-3.5" />
               </Button>
             </div>
           </div>
 
-          <Separator />
-
-          <ScrollArea className="flex-1">
-            <div className="space-y-9 px-8 py-9">
-              <Section label="Created">
-                <p className="text-[13px] text-muted-foreground">
-                  {formatCreated(page.createdTime)}
-                </p>
-              </Section>
-
-              <Separator />
-
-              <Section label="Last edited">
-                <p className="text-[13px] text-muted-foreground">
-                  {formatEdited(page.lastEditedTime)}
-                </p>
-              </Section>
-
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="space-y-4 px-4 py-3">
               {preview && (
-                <>
-                  <Separator />
-                  <Section label="Preview">
-                    <p className="text-[13px] leading-relaxed text-muted-foreground">{preview}</p>
-                  </Section>
-                </>
+                <p className="text-[13px] leading-relaxed text-muted-foreground">{preview}</p>
               )}
 
-              {parent && (
-                <>
-                  <Separator />
-                  <Section label="Parent">
-                    <ConnectionList
-                      items={[{ id: parent.id, title: parent.title }]}
-                      onSelect={exploreNode}
-                    />
-                  </Section>
-                </>
+              <p className="text-[11px] text-muted-foreground/80">
+                {formatEdited(page.lastEditedTime)}
+              </p>
+
+              {hasConnections && (
+                <div className="space-y-3 border-t border-border/40 pt-3">
+                  <ConnectionGroup label="Relations" items={allRelations} onSelect={exploreNode} />
+                  <ConnectionGroup label="Children" items={children} onSelect={exploreNode} />
+                  <ConnectionGroup label="Mentions" items={allMentions} onSelect={exploreNode} />
+                </div>
               )}
-
-              <Separator />
-
-              <Section label="Children">
-                <ConnectionList items={children} onSelect={exploreNode} />
-              </Section>
-
-              <Separator />
-
-              <Section label="Relations">
-                <ConnectionList items={allRelations} onSelect={exploreNode} />
-              </Section>
-
-              <Separator />
-
-              <Section label="Mentions">
-                <ConnectionList items={allMentions} onSelect={exploreNode} />
-              </Section>
             </div>
           </ScrollArea>
 
-          <Separator />
-
-          <div className="p-7">
+          <div className="border-t border-border/50 px-4 py-2.5">
             <Button
-              variant="outline"
-              className="h-11 w-full gap-2 rounded-xl border-border/70 text-sm"
+              variant="ghost"
+              size="sm"
+              className="h-8 w-full justify-center gap-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground"
             >
-              <ExternalLink className="size-4" />
-              Open Page
+              <ExternalLink className="size-3.5" />
+              Open in Notion
             </Button>
           </div>
-        </motion.aside>
-      ) : (
-        <motion.aside
-          key="empty"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="flex w-[360px] shrink-0 flex-col items-center justify-center border-l border-border/60 bg-sidebar px-8 text-center"
-        >
-          <div className="max-w-[240px]">
-            <div className="mx-auto mb-5 flex size-14 items-center justify-center rounded-2xl bg-muted/40">
-              <span className="text-2xl opacity-60">✦</span>
-            </div>
-            <p className="text-sm font-medium text-foreground/80">Select a page</p>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              Search for a page, or pick a cluster to start exploring.
-            </p>
-          </div>
-        </motion.aside>
+        </motion.div>
       )}
     </AnimatePresence>
   );
