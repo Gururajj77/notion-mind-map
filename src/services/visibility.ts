@@ -105,10 +105,6 @@ export function shouldShowEdge(
 
   const edgeType = edge.data?.edgeType as EdgeType | undefined;
 
-  if (graphLevel === 3) {
-    return edgeType === 'parent';
-  }
-
   if (edgeType === 'parent') {
     return true;
   }
@@ -120,6 +116,9 @@ export function shouldShowEdge(
   if (edgeType === 'relation') {
     if (pathMode) {
       return pathNodeIds.has(edge.source) && pathNodeIds.has(edge.target);
+    }
+    if (graphLevel === 3) {
+      return true;
     }
     const activeId = hoveredNodeId ?? selectedNodeId;
     if (!activeId) {
@@ -147,7 +146,7 @@ export function getEdgeOpacity(
   }
 
   if (edgeType === 'parent') {
-    return graphLevel === 3 ? 0.18 : 0.15;
+    return graphLevel === 3 ? 0.38 : 0.15;
   }
 
   if (edgeType === 'mention') {
@@ -158,6 +157,11 @@ export function getEdgeOpacity(
     const activeId = hoveredNodeId ?? selectedNodeId;
     const touches =
       activeId && (edge.source === activeId || edge.target === activeId);
+
+    if (graphLevel === 3) {
+      return touches ? 0.9 : 0.22;
+    }
+
     return touches ? 0.9 : 0;
   }
 
