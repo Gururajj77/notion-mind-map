@@ -4,6 +4,7 @@ import NodeDetails from '@/components/NodeDetails';
 import SearchCommand from '@/components/SearchCommand';
 import Sidebar from '@/components/Sidebar';
 import { fetchPages } from '@/data/pages-adapter';
+import { usePositionUndoShortcuts } from '@/hooks/use-position-undo';
 import { buildGraph, getFocusNodeIds } from '@/services/graph-builder';
 import { useAppStore } from '@/store/app-store';
 
@@ -12,12 +13,24 @@ export default function Home() {
   const setPages = useAppStore((s) => s.setPages);
   const selectedNodeId = useAppStore((s) => s.selectedNodeId);
   const focusMode = useAppStore((s) => s.focusMode);
+  const positionOverrides = useAppStore((s) => s.positionOverrides);
+
+  usePositionUndoShortcuts();
 
   useEffect(() => {
     void fetchPages().then(setPages);
   }, [setPages]);
 
-  const fullGraph = useMemo(() => buildGraph(pages), [pages]);
+  const fullGraph = useMemo(() => {
+    const graph = buildGraph(pages);
+    return {
+      nodes: graph.nodes.map((node) => ({
+        ...node,
+        position: positionOverrides[node.id] ?? node.position,
+      })),
+      edges: graph.edges,
+    };
+  }, [pages, positionOverrides]);
 
   const focusNodeIds = useMemo(() => {
     if (!focusMode || !selectedNodeId) {

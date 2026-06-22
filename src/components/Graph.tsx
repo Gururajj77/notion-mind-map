@@ -8,6 +8,7 @@ import {
   useEdgesState,
   useNodesState,
   type NodeMouseHandler,
+  type OnNodeDrag,
   type ReactFlowInstance,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -39,11 +40,13 @@ function GraphCanvas({ nodes, edges, focusNodeIds }: GraphProps) {
   const centerOnNodeId = useAppStore((s) => s.centerOnNodeId);
   const selectNode = useAppStore((s) => s.selectNode);
   const clearCenter = useAppStore((s) => s.clearCenter);
+  const commitPositionDrag = useAppStore((s) => s.commitPositionDrag);
 
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState(nodes);
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState(edges);
   const reactFlowRef = useRef<ReactFlowInstance<GraphNode, GraphEdge> | null>(null);
   const pendingCenterRef = useRef<string | null>(null);
+  const dragOriginRef = useRef<{ id: string; position: { x: number; y: number } } | null>(null);
 
   const stats = useMemo(() => getGraphStats(pages), [pages]);
   const pathNodeIds = useMemo(
@@ -107,11 +110,13 @@ function GraphCanvas({ nodes, edges, focusNodeIds }: GraphProps) {
   );
 
   useEffect(() => {
-    setFlowNodes(
+    setFlowNodes((current) =>
       nodes.map((node) => {
         const dimState = getNodeDimState(node.id);
+        const currentNode = current.find((n) => n.id === node.id);
         return {
           ...node,
+          position: currentNode?.dragging ? currentNode.position : node.position,
           selected: node.id === selectedNodeId,
           data: {
             ...node.data,
@@ -202,6 +207,28 @@ function GraphCanvas({ nodes, edges, focusNodeIds }: GraphProps) {
     selectNode(null);
   }, [selectNode]);
 
+  const handleNodeDragStart: OnNodeDrag<GraphNode> = useCallback((_, node) => {
+    dragOriginRef.current = { id: node.id, position: { ...node.position } };
+  }, []);
+
+  const handleNodeDragStop: OnNodeDrag<GraphNode> = useCallback(
+    (_, node) => {
+      const origin = dragOriginRef.current;
+      dragOriginRef.current = null;
+
+      if (!origin || origin.id !== node.id) {
+        return;
+      }
+
+      const moved =
+        origin.position.x !== node.position.x || origin.position.y !== node.position.y;
+      if (moved) {
+        commitPositionDrag(node.id, node.position);
+      }
+    },
+    [commitPositionDrag],
+  );
+
   return (
     <div className="relative h-full w-full bg-canvas">
       <ReactFlow
@@ -212,6 +239,8 @@ function GraphCanvas({ nodes, edges, focusNodeIds }: GraphProps) {
         onEdgesChange={onEdgesChange}
         onNodeClick={handleNodeClick}
         onPaneClick={handlePaneClick}
+        onNodeDragStart={handleNodeDragStart}
+        onNodeDragStop={handleNodeDragStop}
         onInit={handleInit}
         fitView
         fitViewOptions={{ padding: 0.4 }}

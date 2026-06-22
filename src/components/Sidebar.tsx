@@ -5,9 +5,11 @@ import {
   GitBranch,
   Link2,
   Moon,
+  Redo2,
   Search,
   Sparkles,
   Sun,
+  Undo2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,6 +38,10 @@ export default function Sidebar() {
   const setSearchOpen = useAppStore((s) => s.setSearchOpen);
   const setDarkMode = useAppStore((s) => s.setDarkMode);
   const selectAndCenter = useAppStore((s) => s.selectAndCenter);
+  const undoPosition = useAppStore((s) => s.undoPosition);
+  const redoPosition = useAppStore((s) => s.redoPosition);
+  const canUndo = useAppStore((s) => s.positionPast.length > 0);
+  const canRedo = useAppStore((s) => s.positionFuture.length > 0);
 
   const focusDisabled = !selectedNodeId;
   const pathToRoot = selectedNodeId ? getPathToRoot(selectedNodeId, pages) : [];
@@ -93,6 +99,35 @@ export default function Sidebar() {
             ⌘K
           </kbd>
         </Button>
+
+        <div className="flex gap-2">
+          <Tooltip>
+            <TooltipTrigger
+              className={cn(
+                'inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-border/70 bg-background text-sm font-medium shadow-none transition-colors hover:bg-accent/40 disabled:pointer-events-none disabled:opacity-40',
+              )}
+              disabled={!canUndo}
+              onClick={undoPosition}
+            >
+              <Undo2 className="size-4" />
+              Undo
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Undo move (⌘Z)</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              className={cn(
+                'inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-border/70 bg-background text-sm font-medium shadow-none transition-colors hover:bg-accent/40 disabled:pointer-events-none disabled:opacity-40',
+              )}
+              disabled={!canRedo}
+              onClick={redoPosition}
+            >
+              <Redo2 className="size-4" />
+              Redo
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Redo move (⌘⇧Z)</TooltipContent>
+          </Tooltip>
+        </div>
 
         <Card className="gap-0 rounded-2xl border-border/60 py-0 shadow-none">
           <CardHeader className="px-5 py-4">
