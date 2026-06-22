@@ -1,47 +1,62 @@
 import { motion } from 'framer-motion';
-import { ChevronRight, Pin, Search, Sparkles } from 'lucide-react';
+import {
+  ChevronRight,
+  Clock,
+  HelpCircle,
+  Pin,
+  Search,
+  Sparkles,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import PageAvatar from '@/components/PageAvatar';
 import { buildExplorerClusters } from '@/lib/explorer-clusters';
-import { getPageIcon } from '@/lib/page-display';
+import { formatOpenedAgo } from '@/lib/format-time';
+import { PLACEHOLDER_QUESTIONS } from '@/lib/placeholder-questions';
 import { useAppStore } from '@/store/app-store';
 
 export default function CanvasHome() {
   const pages = useAppStore((s) => s.pages);
   const pinnedNodeIds = useAppStore((s) => s.pinnedNodeIds);
-  const recentNodeIds = useAppStore((s) => s.recentNodeIds);
+  const recentEntries = useAppStore((s) => s.recentEntries);
   const setSearchOpen = useAppStore((s) => s.setSearchOpen);
   const exploreNode = useAppStore((s) => s.exploreNode);
   const expandCluster = useAppStore((s) => s.expandCluster);
 
+  const pageMap = new Map(pages.map((p) => [p.id, p]));
   const clusters = buildExplorerClusters(pages);
+
   const pinnedPages = pinnedNodeIds
-    .map((id) => pages.find((p) => p.id === id))
+    .map((id) => pageMap.get(id))
     .filter((p): p is NonNullable<typeof p> => p != null);
-  const recentPages = recentNodeIds
-    .map((id) => pages.find((p) => p.id === id))
-    .filter((p): p is NonNullable<typeof p> => p != null);
+
+  const recentPages = recentEntries
+    .map((entry) => {
+      const page = pageMap.get(entry.id);
+      return page ? { page, openedAt: entry.openedAt } : null;
+    })
+    .filter((item): item is NonNullable<typeof item> => item != null);
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="absolute inset-0 z-10 flex items-center justify-center overflow-y-auto bg-canvas/90 p-8 backdrop-blur-md dark:bg-canvas/95"
+      className="absolute inset-0 z-10 overflow-y-auto bg-background"
     >
-      <div className="w-full max-w-2xl space-y-8">
-        <div className="text-center">
-          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-md">
+      <div className="mx-auto w-full max-w-2xl px-6 py-10 pb-16">
+        <header className="mb-10">
+          <div className="mb-4 flex size-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-md">
             <Sparkles className="size-5" />
           </div>
-          <h2 className="text-xl font-semibold tracking-tight">What matters right now?</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">What matters right now?</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Search a page or pick a starting point. The graph appears only in context.
+            Pick up where you left off, or search to jump into context.
           </p>
-        </div>
+        </header>
 
         <Button
           variant="outline"
-          className="h-12 w-full justify-between rounded-2xl border-border/70 bg-card px-5 text-base font-normal shadow-sm"
+          className="mb-10 h-12 w-full justify-between rounded-xl border-border/70 bg-card px-4 text-base font-normal shadow-sm hover:bg-accent/40"
           onClick={() => setSearchOpen(true)}
         >
           <span className="flex items-center gap-3 text-muted-foreground">
@@ -53,8 +68,36 @@ export default function CanvasHome() {
           </kbd>
         </Button>
 
+        {recentPages.length > 0 && (
+          <section className="mb-10 space-y-3">
+            <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              <Clock className="size-3.5" />
+              Continue Exploring
+            </h3>
+            <div className="space-y-2">
+              {recentPages.map(({ page, openedAt }) => (
+                <button
+                  key={page.id}
+                  type="button"
+                  onClick={() => exploreNode(page.id)}
+                  className="group flex w-full items-center gap-3 rounded-xl border border-border/60 bg-card px-4 py-3.5 text-left transition-colors hover:border-border hover:bg-accent/30"
+                >
+                  <PageAvatar page={page} className="text-xl" initialClassName="size-9 text-sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{page.title}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {formatOpenedAgo(openedAt)}
+                    </p>
+                  </div>
+                  <ChevronRight className="size-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         {pinnedPages.length > 0 && (
-          <section className="space-y-3">
+          <section className="mb-10 space-y-3">
             <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
               <Pin className="size-3.5" />
               Pinned
@@ -65,9 +108,9 @@ export default function CanvasHome() {
                   key={page.id}
                   type="button"
                   onClick={() => exploreNode(page.id)}
-                  className="flex items-center gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 text-left transition-colors hover:bg-accent/40"
+                  className="flex items-center gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 text-left transition-colors hover:bg-accent/30"
                 >
-                  <span className="text-lg">{getPageIcon(page)}</span>
+                  <PageAvatar page={page} initialClassName="size-8 text-xs" />
                   <span className="truncate text-sm font-medium">{page.title}</span>
                 </button>
               ))}
@@ -75,40 +118,20 @@ export default function CanvasHome() {
           </section>
         )}
 
-        {recentPages.length > 0 && (
-          <section className="space-y-3">
-            <h3 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Recently opened
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {recentPages.map((page) => (
-                <button
-                  key={page.id}
-                  type="button"
-                  onClick={() => exploreNode(page.id)}
-                  className="rounded-full border border-border/60 bg-card px-3 py-1.5 text-xs text-foreground/80 transition-colors hover:bg-accent/40"
-                >
-                  {page.title}
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <section className="space-y-3">
+        <section className="mb-10 space-y-3">
           <h3 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
             Clusters
           </h3>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             {clusters.map((cluster) => (
               <Card
                 key={cluster.id}
-                className="cursor-pointer rounded-2xl border-border/60 py-0 shadow-none transition-colors hover:bg-accent/30"
+                className="cursor-pointer rounded-xl border-border/60 py-0 shadow-none transition-all hover:border-border hover:bg-accent/20"
                 onClick={() => expandCluster(cluster.id, cluster.rootId)}
               >
-                <CardContent className="flex items-center justify-between px-5 py-4">
+                <CardContent className="flex items-center justify-between px-4 py-3.5">
                   <div>
-                    <p className="font-medium">{cluster.label}</p>
+                    <p className="text-sm font-medium">{cluster.label}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {cluster.nodeIds.length} nodes
                     </p>
@@ -116,6 +139,24 @@ export default function CanvasHome() {
                   <ChevronRight className="size-4 text-muted-foreground" />
                 </CardContent>
               </Card>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            <HelpCircle className="size-3.5" />
+            Questions
+          </h3>
+          <div className="grid gap-2">
+            {PLACEHOLDER_QUESTIONS.map((question) => (
+              <div
+                key={question.id}
+                className="rounded-xl border border-dashed border-border/70 bg-muted/20 px-4 py-3.5"
+              >
+                <p className="text-sm font-medium text-foreground/90">{question.text}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{question.hint}</p>
+              </div>
             ))}
           </div>
         </section>

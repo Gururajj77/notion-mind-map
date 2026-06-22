@@ -4,7 +4,6 @@ type PageSeed = {
   id: string;
   title: string;
   parentId?: string;
-  icon?: string;
   tags?: string[];
   relationIds?: string[];
   mentionIds?: string[];
@@ -33,7 +32,6 @@ export const mockNotionPages: NotionPage[] = [
   page({
     id: 'page_life',
     title: 'Life',
-    icon: '🎯',
     tags: ['goal'],
     createdTime: '2024-03-10T09:00:00.000Z',
     lastEditedTime: '2025-06-01T14:22:00.000Z',
@@ -41,7 +39,6 @@ export const mockNotionPages: NotionPage[] = [
   page({
     id: 'page_career',
     title: 'Career',
-    icon: '💼',
     parentId: 'page_life',
     tags: ['career'],
     pageContent: 'Work stuff.',
@@ -51,7 +48,6 @@ export const mockNotionPages: NotionPage[] = [
   page({
     id: 'page_knotcms',
     title: 'KnotCMS',
-    icon: '🚀',
     parentId: 'page_career',
     tags: ['project'],
     relationIds: ['page_financial'],
@@ -76,7 +72,6 @@ Goals:
   page({
     id: 'page_content',
     title: 'Content Creation',
-    icon: '📚',
     parentId: 'page_life',
     relationIds: ['page_knotcms'],
     pageContent: `Notes on YouTube and writing.
@@ -88,7 +83,6 @@ Mentioned KnotCMS in last week's draft.`,
   page({
     id: 'page_financial',
     title: 'Financial Freedom',
-    icon: '🎯',
     tags: ['goal'],
     pageContent: 'Savings targets\n\n- Emergency fund\n- Index funds',
     createdTime: '2024-01-02T08:00:00.000Z',
@@ -97,7 +91,6 @@ Mentioned KnotCMS in last week's draft.`,
   page({
     id: 'page_health',
     title: 'Health',
-    icon: '❤️',
     parentId: 'page_life',
     tags: ['health'],
     createdTime: '2024-03-11T07:30:00.000Z',

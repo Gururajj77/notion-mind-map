@@ -17,15 +17,15 @@ export default function GlobalViewWarning() {
       <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-300" />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-amber-950 dark:text-amber-100">
-          Experimental — Global View
+          Experimental — Entire Graph
         </p>
         <p className="mt-1 text-xs leading-relaxed text-amber-900/75 dark:text-amber-100/75">
-          Large graphs become difficult to interpret. Use neighborhood or cluster views
-          instead.
+          Large graphs become difficult to interpret. Return to the dashboard or focus on a
+          neighborhood instead.
         </p>
         <div className="mt-3 flex gap-2">
           <Button size="sm" variant="outline" className="h-8 rounded-lg" onClick={goHome}>
-            Back home
+            Back to dashboard
           </Button>
           {selectedNodeId && (
             <Button

@@ -2,10 +2,13 @@ import { extractPreview } from './extract-preview';
 import { formatRelativeEdit } from './format-time';
 import type { NotionPage } from '../types/notion';
 
-export const DEFAULT_PAGE_ICON = '📄';
+export function getPageIcon(page: NotionPage): string | undefined {
+  return page.icon;
+}
 
-export function getPageIcon(page: NotionPage): string {
-  return page.icon ?? DEFAULT_PAGE_ICON;
+export function getPageInitial(page: NotionPage): string {
+  const trimmed = page.title.trim();
+  return trimmed ? trimmed.charAt(0).toUpperCase() : '?';
 }
 
 export function getPagePreview(page: NotionPage): string {

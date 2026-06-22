@@ -65,3 +65,36 @@ export function getExplorerCluster(
 ): ExplorerCluster | null {
   return buildExplorerClusters(pages).find((c) => c.id === clusterId) ?? null;
 }
+
+const CLUSTER_MAX = 20;
+
+/** Breadth-first cap so cluster view stays readable (15–20 nodes). */
+export function capClusterNodes(
+  nodeIds: string[],
+  rootId: string,
+  pages: NotionPage[],
+): string[] {
+  if (nodeIds.length <= CLUSTER_MAX) {
+    return nodeIds;
+  }
+
+  const allowed = new Set(nodeIds);
+  const result: string[] = [];
+  const queue = [rootId];
+  const visited = new Set<string>();
+
+  while (queue.length > 0 && result.length < CLUSTER_MAX) {
+    const id = queue.shift()!;
+    if (visited.has(id) || !allowed.has(id)) continue;
+    visited.add(id);
+    result.push(id);
+
+    for (const page of pages) {
+      if (page.parentId === id && allowed.has(page.id) && !visited.has(page.id)) {
+        queue.push(page.id);
+      }
+    }
+  }
+
+  return result;
+}

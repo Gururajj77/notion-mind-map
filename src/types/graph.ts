@@ -6,7 +6,7 @@ export interface GraphNodeData {
   label: string;
   pageId: string;
   parentId?: string;
-  icon: string;
+  icon?: string;
   preview: string;
   tags: string[];
   relationCount: number;

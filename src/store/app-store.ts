@@ -3,9 +3,10 @@ import type { NotionPage } from '../types/notion';
 import type { GraphLevel } from '../types/exploration';
 import {
   loadPinnedIds,
-  loadRecentIds,
-  pushRecentId,
+  loadRecentEntries,
+  pushRecentEntry,
   savePinnedIds,
+  type RecentEntry,
 } from '../lib/local-persistence';
 import { applyDarkMode, getInitialDarkMode } from '../lib/theme';
 
@@ -23,7 +24,7 @@ interface AppState {
   darkMode: boolean;
   hoveredNodeId: string | null;
   pinnedNodeIds: string[];
-  recentNodeIds: string[];
+  recentEntries: RecentEntry[];
   positionOverrides: PositionOverrides;
   positionPast: PositionOverrides[];
   positionFuture: PositionOverrides[];
@@ -58,28 +59,28 @@ export const useAppStore = create<AppState>((set, get) => ({
   darkMode: getInitialDarkMode(),
   hoveredNodeId: null,
   pinnedNodeIds: loadPinnedIds(),
-  recentNodeIds: loadRecentIds(),
+  recentEntries: loadRecentEntries(),
   positionOverrides: {},
   positionPast: [],
   positionFuture: [],
   setPages: (pages) => set({ pages }),
   selectNode: (id) => {
     if (id) {
-      const recent = pushRecentId(id);
-      set({ selectedNodeId: id, recentNodeIds: recent });
+      const recent = pushRecentEntry(id);
+      set({ selectedNodeId: id, recentEntries: recent });
       return;
     }
     set({ selectedNodeId: null });
   },
   exploreNode: (id) => {
-    const recent = pushRecentId(id);
+    const recent = pushRecentEntry(id);
     set({
       selectedNodeId: id,
       graphLevel: 1,
       expandedClusterId: null,
       pathMode: false,
       centerOnNodeId: id,
-      recentNodeIds: recent,
+      recentEntries: recent,
       searchOpen: false,
     });
   },
@@ -93,14 +94,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       hoveredNodeId: null,
     }),
   expandCluster: (clusterId, rootId) => {
-    const recent = pushRecentId(rootId);
+    const recent = pushRecentEntry(rootId);
     set({
       graphLevel: 2,
       expandedClusterId: clusterId,
       selectedNodeId: rootId,
       pathMode: false,
       centerOnNodeId: null,
-      recentNodeIds: recent,
+      recentEntries: recent,
       searchOpen: false,
     });
   },

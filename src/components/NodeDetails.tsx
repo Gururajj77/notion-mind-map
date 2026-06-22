@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import PageAvatar from '@/components/PageAvatar';
 import { formatCreated, formatEdited } from '@/lib/format-time';
-import { getPageIcon, getPagePreview } from '@/lib/page-display';
+import { getPagePreview } from '@/lib/page-display';
 import { useAppStore } from '@/store/app-store';
 import type { NotionPage } from '@/types/notion';
 
@@ -109,7 +110,7 @@ export default function NodeDetails() {
         >
           <div className="px-8 py-9">
             <div className="flex items-start gap-4">
-              <span className="text-[32px] leading-none">{getPageIcon(page)}</span>
+              <PageAvatar page={page} className="text-[32px]" initialClassName="size-14 text-xl" />
               <div className="min-w-0 flex-1">
                 <h2 className="text-base font-semibold tracking-tight">{page.title}</h2>
                 {page.tags.length > 0 && (

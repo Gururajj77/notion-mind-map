@@ -1,4 +1,4 @@
-import { getExplorerCluster } from '../lib/explorer-clusters';
+import { getExplorerCluster, capClusterNodes } from '../lib/explorer-clusters';
 import type { GraphLevel } from '../types/exploration';
 import type { NotionPage } from '../types/notion';
 import type { EdgeType, GraphEdge } from '../types/graph';
@@ -73,7 +73,7 @@ export function getVisibleNodeIds(
   if (graphLevel === 2 && expandedClusterId) {
     const cluster = getExplorerCluster(expandedClusterId, pages);
     if (cluster) {
-      return new Set(cluster.nodeIds);
+      return new Set(capClusterNodes(cluster.nodeIds, cluster.rootId, pages));
     }
   }
 
@@ -105,6 +105,10 @@ export function shouldShowEdge(
 
   const edgeType = edge.data?.edgeType as EdgeType | undefined;
 
+  if (graphLevel === 3) {
+    return edgeType === 'parent';
+  }
+
   if (edgeType === 'parent') {
     return true;
   }
@@ -114,11 +118,11 @@ export function shouldShowEdge(
   }
 
   if (edgeType === 'relation') {
+    if (graphLevel !== 1) {
+      return false;
+    }
     if (pathMode) {
       return pathNodeIds.has(edge.source) && pathNodeIds.has(edge.target);
-    }
-    if (graphLevel === 3) {
-      return true;
     }
     const activeId = hoveredNodeId ?? selectedNodeId;
     if (!activeId) {
@@ -146,23 +150,18 @@ export function getEdgeOpacity(
   }
 
   if (edgeType === 'parent') {
-    return graphLevel === 3 ? 0.38 : 0.15;
+    return graphLevel === 3 ? 0.35 : 0.12;
   }
 
   if (edgeType === 'mention') {
-    return 0.45;
+    return 0.4;
   }
 
   if (edgeType === 'relation') {
     const activeId = hoveredNodeId ?? selectedNodeId;
     const touches =
       activeId && (edge.source === activeId || edge.target === activeId);
-
-    if (graphLevel === 3) {
-      return touches ? 0.9 : 0.22;
-    }
-
-    return touches ? 0.9 : 0;
+    return touches ? 0.85 : 0;
   }
 
   return base;

@@ -54,14 +54,25 @@ function PageNodeComponent({ data, selected }: NodeProps<PageNodeType>) {
             }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
             className={cn(
-              'w-[250px] rounded-2xl border bg-card px-5 py-4',
-              selected ? 'border-primary/55' : 'border-border/60',
+              'w-[250px] rounded-2xl border bg-card px-5 py-4 transition-shadow',
+              selected
+                ? 'border-primary ring-2 ring-primary/30'
+                : 'border-border/60',
             )}
           >
             <div className="flex items-start gap-3">
-              <span className="text-[22px] leading-none" aria-hidden>
-                {data.icon}
-              </span>
+              {data.icon ? (
+                <span className="text-[22px] leading-none" aria-hidden>
+                  {data.icon}
+                </span>
+              ) : (
+                <span
+                  className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold text-muted-foreground"
+                  aria-hidden
+                >
+                  {data.label.charAt(0).toUpperCase()}
+                </span>
+              )}
               <div className="min-w-0 flex-1 space-y-2">
                 <p className="truncate text-base font-semibold leading-tight text-card-foreground">
                   {data.label}

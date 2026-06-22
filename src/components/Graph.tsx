@@ -172,16 +172,23 @@ function GraphCanvas({ nodes, edges, visibleNodeIds }: GraphProps) {
       if (graphLevel === 2 && visibleNodeIds?.has(nodeId)) {
         return {
           dimmed: false,
-          dimOpacity: isSelected ? 1 : 0.96,
+          dimOpacity: 1,
           onPath,
         };
       }
 
-      if (graphLevel === 1 && visibleNodeIds) {
-        const inNeighborhood = visibleNodeIds.has(nodeId);
+      if (graphLevel === 1 && visibleNodeIds?.has(nodeId)) {
         return {
-          dimmed: !inNeighborhood || (!isSelected && graphLevel === 1),
-          dimOpacity: isSelected ? 1 : 0.92,
+          dimmed: false,
+          dimOpacity: 1,
+          onPath,
+        };
+      }
+
+      if (graphLevel === 3) {
+        return {
+          dimmed: Boolean(selectedNodeId && !isSelected),
+          dimOpacity: isSelected ? 1 : 0.05,
           onPath,
         };
       }

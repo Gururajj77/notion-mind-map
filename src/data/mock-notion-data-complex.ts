@@ -4,7 +4,6 @@ type PageSeed = {
   id: string;
   title: string;
   parentId?: string;
-  icon?: string;
   tags?: string[];
   relationIds?: string[];
   mentionIds?: string[];
@@ -31,24 +30,22 @@ function page(seed: PageSeed): NotionPage {
  */
 export const mockNotionPagesComplex: NotionPage[] = [
   // ── Roots ──────────────────────────────────────────────────────────
-  page({ id: 'page_life', title: 'Life', icon: '🎯', tags: ['goal'], lastEditedTime: '2025-06-01T14:22:00.000Z' }),
+  page({ id: 'page_life', title: 'Life', tags: ['goal'], lastEditedTime: '2025-06-01T14:22:00.000Z' }),
   page({
     id: 'page_financial',
     title: 'Financial Freedom',
-    icon: '🎯',
     tags: ['goal'],
     pageContent: 'Savings targets\n\n- Emergency fund\n- Index funds',
     createdTime: '2024-01-02T08:00:00.000Z',
   }),
-  page({ id: 'page_learning', title: 'Learning', icon: '📚', tags: ['goal'], pageContent: 'Things I want to learn properly.' }),
-  page({ id: 'page_home', title: 'Home', icon: '🏠', pageContent: '' }),
-  page({ id: 'page_archive', title: 'Archive', icon: '🗄️', tags: ['archive'], pageContent: 'Old notes. Probably delete.' }),
+  page({ id: 'page_learning', title: 'Learning', tags: ['goal'], pageContent: 'Things I want to learn properly.' }),
+  page({ id: 'page_home', title: 'Home', pageContent: '' }),
+  page({ id: 'page_archive', title: 'Archive', tags: ['archive'], pageContent: 'Old notes. Probably delete.' }),
 
   // ── Life → Career ──────────────────────────────────────────────────
   page({
     id: 'page_career',
     title: 'Career',
-    icon: '💼',
     parentId: 'page_life',
     tags: ['career'],
     pageContent: 'Work stuff.',
@@ -95,7 +92,6 @@ export const mockNotionPagesComplex: NotionPage[] = [
   page({
     id: 'page_knotcms',
     title: 'KnotCMS',
-    icon: '🚀',
     parentId: 'page_career',
     tags: ['project'],
     relationIds: ['page_financial', 'page_framerschool', 'page_plugin'],
@@ -151,7 +147,6 @@ Goals:
   page({
     id: 'page_framerschool',
     title: 'Framer School',
-    icon: '🎓',
     parentId: 'page_career',
     tags: ['project'],
     relationIds: ['page_knotcms', 'page_content'],
@@ -183,7 +178,6 @@ Goals:
   page({
     id: 'page_content',
     title: 'Content Creation',
-    icon: '📚',
     parentId: 'page_life',
     relationIds: ['page_knotcms', 'page_framerschool'],
     pageContent: `Notes on YouTube and writing.
@@ -238,7 +232,6 @@ Mentioned KnotCMS in last week's draft.`,
   page({
     id: 'page_health',
     title: 'Health',
-    icon: '❤️',
     parentId: 'page_life',
     tags: ['health'],
     lastEditedTime: '2025-06-10T06:00:00.000Z',
@@ -350,7 +343,6 @@ Mentioned KnotCMS in last week's draft.`,
   page({
     id: 'page_random_idea',
     title: 'Random Idea — Mind Map',
-    icon: '💡',
     tags: ['project'],
     relationIds: ['page_knotcms', 'page_journal'],
     mentionIds: ['page_content'],
@@ -366,13 +358,11 @@ Mentioned KnotCMS in last week's draft.`,
   page({
     id: 'page_shopping',
     title: 'Shopping List',
-    icon: '🛒',
     pageContent: '- coffee\n- batteries',
   }),
   page({
     id: 'page_travel_japan',
     title: 'Japan Trip',
-    icon: '✈️',
     tags: ['personal'],
     relationIds: ['page_budget'],
     pageContent: 'Kyoto + Tokyo. October?',
@@ -458,7 +448,6 @@ Mentioned KnotCMS in last week's draft.`,
   page({
     id: 'page_notion_export',
     title: 'Notion Export Notes',
-    icon: '📄',
     relationIds: ['page_random_idea'],
     mentionIds: ['page_knotcms'],
     pageContent: 'API limits and block types to handle.',

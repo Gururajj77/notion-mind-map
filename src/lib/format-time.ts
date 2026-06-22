@@ -38,3 +38,19 @@ export function formatEdited(iso: string): string {
     year: 'numeric',
   });
 }
+
+export function formatOpenedAgo(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 1) return 'Opened just now';
+  if (diffMins < 60) return `Opened ${diffMins} min ago`;
+  if (diffHours < 24) return `Opened ${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+  if (diffDays === 1) return 'Opened yesterday';
+  if (diffDays < 7) return `Opened ${diffDays} days ago`;
+  return `Opened ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+}

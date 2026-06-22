@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '@/store/app-store';
 import {
+  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -9,7 +10,8 @@ import {
   CommandList,
   CommandShortcut,
 } from '@/components/ui/command';
-import { getPageIcon } from '@/lib/page-display';
+import PageAvatar from '@/components/PageAvatar';
+import type { NotionPage } from '@/types/notion';
 
 function highlightMatch(text: string, query: string) {
   if (!query.trim()) {
@@ -36,11 +38,18 @@ function highlightMatch(text: string, query: string) {
   );
 }
 
+function matchesQuery(page: NotionPage, query: string): boolean {
+  const haystack = [page.title, ...page.tags, page.pageContent.slice(0, 200)]
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(query);
+}
+
 export default function SearchCommand() {
   const pages = useAppStore((s) => s.pages);
   const searchOpen = useAppStore((s) => s.searchOpen);
   const setSearchOpen = useAppStore((s) => s.setSearchOpen);
-  const selectAndCenter = useAppStore((s) => s.selectAndCenter);
+  const exploreNode = useAppStore((s) => s.exploreNode);
   const [query, setQuery] = useState('');
 
   const filteredPages = useMemo(() => {
@@ -48,7 +57,7 @@ export default function SearchCommand() {
     if (!normalized) {
       return pages;
     }
-    return pages.filter((page) => page.title.toLowerCase().includes(normalized));
+    return pages.filter((page) => matchesQuery(page, normalized));
   }, [pages, query]);
 
   useEffect(() => {
@@ -69,45 +78,56 @@ export default function SearchCommand() {
     }
   }, [searchOpen]);
 
+  const handleSelect = (pageId: string) => {
+    exploreNode(pageId);
+  };
+
   return (
     <CommandDialog
       open={searchOpen}
       onOpenChange={setSearchOpen}
       title="Search pages"
-      description="Jump to any page in your mind map"
+      description="Jump to any page in your workspace"
       className="max-w-lg"
     >
-      <CommandInput placeholder="Search pages..." value={query} onValueChange={setQuery} />
-      <CommandList>
-        <CommandEmpty>No pages found.</CommandEmpty>
-        <CommandGroup heading="Pages">
-          {filteredPages.map((page) => (
-            <CommandItem
-              key={page.id}
-              value={page.title}
-              onSelect={() => selectAndCenter(page.id)}
-              className="gap-3 rounded-lg py-3"
-            >
-              <span className="text-lg leading-none">{getPageIcon(page)}</span>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-sm font-medium">
-                  {highlightMatch(page.title, query)}
-                </span>
-                {page.tags.length > 0 && (
-                  <span className="text-xs capitalize text-muted-foreground">
-                    {page.tags.join(', ')}
+      <Command shouldFilter={false}>
+        <CommandInput
+          placeholder="Search pages..."
+          value={query}
+          onValueChange={setQuery}
+        />
+        <CommandList>
+          <CommandEmpty>No pages found.</CommandEmpty>
+          <CommandGroup heading="Pages">
+            {filteredPages.map((page) => (
+              <CommandItem
+                key={page.id}
+                value={page.id}
+                keywords={[page.title, ...page.tags]}
+                onSelect={() => handleSelect(page.id)}
+                className="gap-3 rounded-lg py-3"
+              >
+                <PageAvatar page={page} initialClassName="size-8 text-sm" />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm font-medium">
+                    {highlightMatch(page.title, query)}
                   </span>
-                )}
-              </div>
-            </CommandItem>
-          ))}
-        </CommandGroup>
-      </CommandList>
-      <div className="border-t px-4 py-2.5">
-        <CommandShortcut className="text-[11px] text-muted-foreground">
-          ↑↓ navigate · ↵ jump to page · esc close
-        </CommandShortcut>
-      </div>
+                  {page.tags.length > 0 && (
+                    <span className="text-xs capitalize text-muted-foreground">
+                      {page.tags.join(', ')}
+                    </span>
+                  )}
+                </div>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+        <div className="border-t px-4 py-2.5">
+          <CommandShortcut className="text-[11px] text-muted-foreground">
+            ↑↓ navigate · ↵ open neighborhood · esc close
+          </CommandShortcut>
+        </div>
+      </Command>
     </CommandDialog>
   );
 }

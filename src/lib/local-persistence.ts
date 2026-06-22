@@ -1,8 +1,13 @@
+export interface RecentEntry {
+  id: string;
+  openedAt: string;
+}
+
 const PINNED_KEY = 'mind-map:pinned';
 const RECENT_KEY = 'mind-map:recent';
 const MAX_RECENT = 8;
 
-const DEFAULT_PINNED = ['page_knotcms', 'page_financial', 'page_ibm', 'page_health'];
+const DEFAULT_PINNED = ['page_health', 'page_ibm', 'page_knotcms'];
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -27,13 +32,35 @@ export function savePinnedIds(ids: string[]) {
   writeJson(PINNED_KEY, ids);
 }
 
-export function loadRecentIds(): string[] {
-  return readJson<string[]>(RECENT_KEY, []);
+function migrateRecent(raw: unknown): RecentEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (typeof item === 'string') {
+        return { id: item, openedAt: new Date().toISOString() };
+      }
+      if (item && typeof item === 'object' && 'id' in item) {
+        const entry = item as RecentEntry;
+        return {
+          id: entry.id,
+          openedAt: entry.openedAt ?? new Date().toISOString(),
+        };
+      }
+      return null;
+    })
+    .filter((item): item is RecentEntry => item != null);
 }
 
-export function pushRecentId(id: string): string[] {
-  const current = loadRecentIds().filter((item) => item !== id);
-  const next = [id, ...current].slice(0, MAX_RECENT);
+export function loadRecentEntries(): RecentEntry[] {
+  return migrateRecent(readJson<unknown>(RECENT_KEY, []));
+}
+
+export function pushRecentEntry(id: string): RecentEntry[] {
+  const current = loadRecentEntries().filter((item) => item.id !== id);
+  const next: RecentEntry[] = [
+    { id, openedAt: new Date().toISOString() },
+    ...current,
+  ].slice(0, MAX_RECENT);
   writeJson(RECENT_KEY, next);
   return next;
 }
