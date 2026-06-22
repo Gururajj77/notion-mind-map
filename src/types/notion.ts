@@ -1,7 +1,13 @@
 export interface NotionPage {
   id: string;
   title: string;
-  parentId: string | null;
-  relations: string[];
-  mentions: string[];
+  icon?: string;
+  cover?: string;
+  createdTime: string;
+  lastEditedTime: string;
+  parentId?: string;
+  relationIds: string[];
+  mentionIds: string[];
+  tags: string[];
+  pageContent: string;
 }

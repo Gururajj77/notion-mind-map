@@ -1,6 +1,11 @@
 import { MarkerType } from '@xyflow/react';
 import { getClusterCount } from '../lib/cluster-builder';
-import { getPageMeta } from '../lib/page-meta';
+import {
+  getEditedLabel,
+  getLinkCount,
+  getPageIcon,
+  getPagePreview,
+} from '../lib/page-display';
 import type { NotionPage } from '../types/notion';
 import type { EdgeType, Graph, GraphEdge, GraphNode } from '../types/graph';
 import { applyDagreLayout } from './dagre-layout';
@@ -19,7 +24,7 @@ function createEdge(
       type: 'smoothstep',
       data: { edgeType },
       style: {
-        stroke: '#94a3b8',
+        stroke: 'var(--edge-parent)',
         strokeWidth: 1,
         opacity: 0.22,
       },
@@ -36,20 +41,20 @@ function createEdge(
       type: 'default',
       data: { edgeType },
       style: {
-        stroke: '#4f6ef7',
+        stroke: 'var(--edge-relation)',
         strokeWidth: 2.25,
         opacity: 0.85,
       },
       animated: true,
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: '#4f6ef7',
+        color: 'var(--edge-relation)',
         width: 14,
         height: 14,
       },
       markerStart: {
         type: MarkerType.ArrowClosed,
-        color: '#4f6ef7',
+        color: 'var(--edge-relation)',
         width: 14,
         height: 14,
       },
@@ -63,7 +68,7 @@ function createEdge(
     type: 'default',
     data: { edgeType },
     style: {
-      stroke: '#f97316',
+      stroke: 'var(--edge-mention)',
       strokeWidth: 1.5,
       strokeDasharray: '4 6',
       opacity: 0.4,
@@ -71,13 +76,13 @@ function createEdge(
     animated: false,
     markerEnd: {
       type: MarkerType.ArrowClosed,
-      color: '#f97316',
+      color: 'var(--edge-mention)',
       width: 12,
       height: 12,
     },
     markerStart: {
       type: MarkerType.ArrowClosed,
-      color: '#f97316',
+      color: 'var(--edge-mention)',
       width: 12,
       height: 12,
     },
@@ -103,32 +108,23 @@ function addUniqueEdge(
 }
 
 export function buildGraphNodes(pages: NotionPage[]): GraphNode[] {
-  const childCounts = new Map<string, number>();
-  for (const page of pages) {
-    if (page.parentId) {
-      childCounts.set(page.parentId, (childCounts.get(page.parentId) ?? 0) + 1);
-    }
-  }
-
-  return pages.map((page) => {
-    const meta = getPageMeta(page.title);
-    return {
-      id: page.id,
-      position: { x: 0, y: 0 },
-      data: {
-        label: page.title,
-        pageId: page.id,
-        parentId: page.parentId,
-        relationCount: page.relations.length,
-        mentionCount: page.mentions.length,
-        childCount: childCounts.get(page.id) ?? 0,
-        emoji: meta.emoji,
-        pageType: meta.type,
-        description: meta.description,
-      },
-      type: 'pageNode',
-    };
-  });
+  return pages.map((page) => ({
+    id: page.id,
+    position: { x: 0, y: 0 },
+    data: {
+      label: page.title,
+      pageId: page.id,
+      parentId: page.parentId,
+      icon: getPageIcon(page),
+      preview: getPagePreview(page),
+      tags: page.tags,
+      relationCount: page.relationIds.length,
+      mentionCount: page.mentionIds.length,
+      linkCount: getLinkCount(page),
+      editedLabel: getEditedLabel(page),
+    },
+    type: 'pageNode',
+  }));
 }
 
 export function buildGraphEdges(pages: NotionPage[]): GraphEdge[] {
@@ -141,13 +137,13 @@ export function buildGraphEdges(pages: NotionPage[]): GraphEdge[] {
       addUniqueEdge(edges, seen, page.parentId, page.id, 'parent');
     }
 
-    for (const relationId of page.relations) {
+    for (const relationId of page.relationIds) {
       if (pageIds.has(relationId)) {
         addUniqueEdge(edges, seen, page.id, relationId, 'relation');
       }
     }
 
-    for (const mentionId of page.mentions) {
+    for (const mentionId of page.mentionIds) {
       if (pageIds.has(mentionId)) {
         addUniqueEdge(edges, seen, page.id, mentionId, 'mention');
       }
@@ -215,19 +211,19 @@ export function getFocusNodeIds(selectedId: string, pages: NotionPage[]): Set<st
     }
   }
 
-  for (const relationId of selected.relations) {
+  for (const relationId of selected.relationIds) {
     ids.add(relationId);
   }
 
-  for (const mentionId of selected.mentions) {
+  for (const mentionId of selected.mentionIds) {
     ids.add(mentionId);
   }
 
   for (const page of pages) {
-    if (page.relations.includes(selectedId)) {
+    if (page.relationIds.includes(selectedId)) {
       ids.add(page.id);
     }
-    if (page.mentions.includes(selectedId)) {
+    if (page.mentionIds.includes(selectedId)) {
       ids.add(page.id);
     }
   }
@@ -240,8 +236,8 @@ export function getGraphStats(pages: NotionPage[]) {
   let mentions = 0;
 
   for (const page of pages) {
-    relationships += page.relations.length;
-    mentions += page.mentions.length;
+    relationships += page.relationIds.length;
+    mentions += page.mentionIds.length;
   }
 
   return {

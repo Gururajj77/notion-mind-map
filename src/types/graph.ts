@@ -5,13 +5,14 @@ export type EdgeType = 'parent' | 'relation' | 'mention';
 export interface GraphNodeData {
   label: string;
   pageId: string;
-  parentId: string | null;
+  parentId?: string;
+  icon: string;
+  preview: string;
+  tags: string[];
   relationCount: number;
   mentionCount: number;
-  childCount: number;
-  emoji: string;
-  pageType: string;
-  description: string;
+  linkCount: number;
+  editedLabel: string;
   dimmed?: boolean;
   dimOpacity?: number;
   onPath?: boolean;
@@ -23,7 +24,7 @@ export interface GraphEdgeData {
   [key: string]: unknown;
 }
 
-export type GraphNode = Node<GraphNodeData>;
+export type GraphNode = Node<GraphNodeData, 'pageNode'>;
 export type GraphEdge = Edge<GraphEdgeData>;
 
 export interface Graph {

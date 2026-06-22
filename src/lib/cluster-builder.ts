@@ -52,7 +52,7 @@ function isDescendant(page: NotionPage, ancestorId: string, pages: NotionPage[])
   let current = page.parentId;
   while (current) {
     if (current === ancestorId) return true;
-    current = pages.find((p) => p.id === current)?.parentId ?? null;
+    current = pages.find((p) => p.id === current)?.parentId;
   }
   return false;
 }

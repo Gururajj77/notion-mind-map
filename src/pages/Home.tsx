@@ -5,14 +5,18 @@ import SearchCommand from '@/components/SearchCommand';
 import Sidebar from '@/components/Sidebar';
 import { fetchPages } from '@/data/pages-adapter';
 import { usePositionUndoShortcuts } from '@/hooks/use-position-undo';
-import { buildGraph, getFocusNodeIds } from '@/services/graph-builder';
+import { buildGraph, filterGraph } from '@/services/graph-builder';
+import { applyDagreLayout } from '@/services/dagre-layout';
+import { getVisibleNodeIds } from '@/services/visibility';
 import { useAppStore } from '@/store/app-store';
 
 export default function Home() {
   const pages = useAppStore((s) => s.pages);
   const setPages = useAppStore((s) => s.setPages);
+  const graphLevel = useAppStore((s) => s.graphLevel);
   const selectedNodeId = useAppStore((s) => s.selectedNodeId);
-  const focusMode = useAppStore((s) => s.focusMode);
+  const expandedClusterId = useAppStore((s) => s.expandedClusterId);
+  const pathMode = useAppStore((s) => s.pathMode);
   const positionOverrides = useAppStore((s) => s.positionOverrides);
 
   usePositionUndoShortcuts();
@@ -21,33 +25,53 @@ export default function Home() {
     void fetchPages().then(setPages);
   }, [setPages]);
 
-  const fullGraph = useMemo(() => {
-    const graph = buildGraph(pages);
-    return {
-      nodes: graph.nodes.map((node) => ({
-        ...node,
-        position: positionOverrides[node.id] ?? node.position,
-      })),
-      edges: graph.edges,
-    };
-  }, [pages, positionOverrides]);
+  const visibleNodeIds = useMemo(
+    () =>
+      getVisibleNodeIds(
+        graphLevel,
+        selectedNodeId,
+        expandedClusterId,
+        pathMode,
+        pages,
+      ),
+    [graphLevel, selectedNodeId, expandedClusterId, pathMode, pages],
+  );
 
-  const focusNodeIds = useMemo(() => {
-    if (!focusMode || !selectedNodeId) {
-      return null;
+  const graph = useMemo(() => {
+    const fullGraph = buildGraph(pages);
+
+    if (graphLevel === 0) {
+      return { nodes: [], edges: [] };
     }
-    return getFocusNodeIds(selectedNodeId, pages);
-  }, [focusMode, selectedNodeId, pages]);
+
+    if (visibleNodeIds === null) {
+      return {
+        nodes: fullGraph.nodes.map((node) => ({
+          ...node,
+          position: positionOverrides[node.id] ?? node.position,
+        })),
+        edges: fullGraph.edges,
+      };
+    }
+
+    if (visibleNodeIds.size === 0) {
+      return { nodes: [], edges: [] };
+    }
+
+    const filtered = filterGraph(fullGraph, visibleNodeIds);
+    const layouted = applyDagreLayout(filtered.nodes, filtered.edges);
+
+    return {
+      nodes: layouted,
+      edges: filtered.edges,
+    };
+  }, [pages, graphLevel, visibleNodeIds, positionOverrides]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar />
-      <main className="relative min-w-0 flex-1">
-        <Graph
-          nodes={fullGraph.nodes}
-          edges={fullGraph.edges}
-          focusNodeIds={focusNodeIds}
-        />
+      <main className="relative h-full min-h-0 min-w-0 flex-1">
+        <Graph nodes={graph.nodes} edges={graph.edges} visibleNodeIds={visibleNodeIds} />
       </main>
       <NodeDetails />
       <SearchCommand />

@@ -8,19 +8,23 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/store/app-store';
 import type { GraphNodeData } from '../types/graph';
 
 type PageNodeType = Node<GraphNodeData, 'pageNode'>;
 
 function PageNodeComponent({ data, selected }: NodeProps<PageNodeType>) {
   const [hovered, setHovered] = useState(false);
+  const setHoveredNodeId = useAppStore((s) => s.setHoveredNodeId);
   const isDimmed = data.dimmed && !selected;
+  const hasPreview = data.preview.length > 0;
+  const hasTags = data.tags.length > 0;
 
   const shadow = selected
-    ? '0 0 0 2px rgba(79, 110, 247, 0.5), 0 16px 40px -10px rgba(15, 23, 42, 0.22)'
+    ? 'var(--node-shadow-selected)'
     : hovered && !isDimmed
-      ? '0 10px 28px -8px rgba(15, 23, 42, 0.16)'
-      : '0 2px 10px -2px rgba(15, 23, 42, 0.08)';
+      ? 'var(--node-shadow-hover)'
+      : 'var(--node-shadow)';
 
   return (
     <>
@@ -31,8 +35,14 @@ function PageNodeComponent({ data, selected }: NodeProps<PageNodeType>) {
       />
       <Tooltip>
         <TooltipTrigger
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
+          onMouseEnter={() => {
+            setHovered(true);
+            setHoveredNodeId(data.pageId);
+          }}
+          onMouseLeave={() => {
+            setHovered(false);
+            setHoveredNodeId(null);
+          }}
           className="block text-left"
         >
           <motion.div
@@ -45,39 +55,45 @@ function PageNodeComponent({ data, selected }: NodeProps<PageNodeType>) {
             transition={{ duration: 0.15, ease: 'easeOut' }}
             className={cn(
               'w-[250px] rounded-2xl border bg-card px-5 py-4',
-              selected ? 'border-blue-500/60' : 'border-border/70',
+              selected ? 'border-primary/55' : 'border-border/60',
             )}
           >
             <div className="flex items-start gap-3">
               <span className="text-[22px] leading-none" aria-hidden>
-                {data.emoji}
+                {data.icon}
               </span>
               <div className="min-w-0 flex-1 space-y-2">
-                <div>
-                  <p className="truncate text-base font-semibold leading-tight text-card-foreground">
-                    {data.label}
+                <p className="truncate text-base font-semibold leading-tight text-card-foreground">
+                  {data.label}
+                </p>
+
+                {hasPreview && (
+                  <p className="line-clamp-2 text-[13px] leading-snug text-muted-foreground">
+                    {data.preview}
                   </p>
-                  <p className="mt-1.5 line-clamp-2 text-[13px] leading-snug text-muted-foreground">
-                    {data.description}
-                  </p>
-                </div>
-                <Badge
-                  variant="secondary"
-                  className="h-5 rounded-md px-2 text-[10px] font-medium"
-                >
-                  {data.pageType}
-                </Badge>
-                <div className="flex flex-col gap-0.5 pt-0.5">
-                  {data.relationCount > 0 && (
-                    <p className="text-[11px] text-muted-foreground/80">
-                      🔗 {data.relationCount} relation{data.relationCount === 1 ? '' : 's'}
+                )}
+
+                {hasTags && (
+                  <div className="flex flex-wrap gap-1">
+                    {data.tags.map((tag) => (
+                      <Badge
+                        key={tag}
+                        variant="secondary"
+                        className="h-5 rounded-md px-2 text-[10px] font-medium capitalize"
+                      >
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-0.5 pt-0.5 text-[11px] text-muted-foreground/80">
+                  {data.linkCount > 0 && (
+                    <p>
+                      {data.linkCount} link{data.linkCount === 1 ? '' : 's'}
                     </p>
                   )}
-                  {data.mentionCount > 0 && (
-                    <p className="text-[11px] text-muted-foreground/80">
-                      📝 {data.mentionCount} mention{data.mentionCount === 1 ? '' : 's'}
-                    </p>
-                  )}
+                  <p>{data.editedLabel}</p>
                 </div>
               </div>
             </div>
@@ -89,18 +105,18 @@ function PageNodeComponent({ data, selected }: NodeProps<PageNodeType>) {
           className="max-w-[260px] rounded-xl border border-border/60 bg-popover px-4 py-3 text-popover-foreground shadow-lg [&>:last-child]:bg-popover [&>:last-child]:fill-popover"
         >
           <p className="text-sm font-semibold text-popover-foreground">{data.label}</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            {data.description}
-          </p>
-          <div className="mt-2 flex items-center gap-2">
-            <Badge variant="outline" className="h-5 text-[10px]">
-              {data.pageType}
-            </Badge>
-            {(data.relationCount > 0 || data.mentionCount > 0) && (
+          {hasPreview && (
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{data.preview}</p>
+          )}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {data.tags.map((tag) => (
+              <Badge key={tag} variant="outline" className="h-5 text-[10px] capitalize">
+                {tag}
+              </Badge>
+            ))}
+            {data.linkCount > 0 && (
               <span className="text-[10px] text-muted-foreground">
-                {data.relationCount > 0 && `🔗 ${data.relationCount}`}
-                {data.relationCount > 0 && data.mentionCount > 0 && ' · '}
-                {data.mentionCount > 0 && `📝 ${data.mentionCount}`}
+                {data.linkCount} link{data.linkCount === 1 ? '' : 's'}
               </span>
             )}
           </div>

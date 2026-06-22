@@ -12,9 +12,10 @@ import {
   type ReactFlowInstance,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import ClusterBackground from '@/components/ClusterBackground';
+import BreadcrumbNav from '@/components/BreadcrumbNav';
+import CanvasHome from '@/components/CanvasHome';
+import GlobalViewWarning from '@/components/GlobalViewWarning';
 import GraphStats from '@/components/GraphStats';
-import { buildClusters, computeClusterBounds } from '@/lib/cluster-builder';
 import { useAppStore } from '@/store/app-store';
 import { NODE_HEIGHT, NODE_WIDTH } from '@/services/dagre-layout';
 import {
@@ -22,6 +23,10 @@ import {
   getPathEdgePairs,
   getPathNodeIds,
 } from '@/services/graph-builder';
+import {
+  getEdgeOpacity,
+  shouldShowEdge,
+} from '@/services/visibility';
 import type { GraphEdge, GraphNode } from '@/types/graph';
 import PageNode from './PageNode';
 
@@ -30,14 +35,18 @@ const nodeTypes = { pageNode: PageNode };
 interface GraphProps {
   nodes: GraphNode[];
   edges: GraphEdge[];
-  focusNodeIds: Set<string> | null;
+  visibleNodeIds: Set<string> | null;
 }
 
-function GraphCanvas({ nodes, edges, focusNodeIds }: GraphProps) {
+function GraphCanvas({ nodes, edges, visibleNodeIds }: GraphProps) {
   const pages = useAppStore((s) => s.pages);
+  const graphLevel = useAppStore((s) => s.graphLevel);
   const selectedNodeId = useAppStore((s) => s.selectedNodeId);
-  const focusMode = useAppStore((s) => s.focusMode);
+  const pathMode = useAppStore((s) => s.pathMode);
+  const hoveredNodeId = useAppStore((s) => s.hoveredNodeId);
   const centerOnNodeId = useAppStore((s) => s.centerOnNodeId);
+  const expandedClusterId = useAppStore((s) => s.expandedClusterId);
+  const exploreNode = useAppStore((s) => s.exploreNode);
   const selectNode = useAppStore((s) => s.selectNode);
   const clearCenter = useAppStore((s) => s.clearCenter);
   const commitPositionDrag = useAppStore((s) => s.commitPositionDrag);
@@ -47,6 +56,13 @@ function GraphCanvas({ nodes, edges, focusNodeIds }: GraphProps) {
   const reactFlowRef = useRef<ReactFlowInstance<GraphNode, GraphEdge> | null>(null);
   const pendingCenterRef = useRef<string | null>(null);
   const dragOriginRef = useRef<{ id: string; position: { x: number; y: number } } | null>(null);
+  const lastLayoutKeyRef = useRef<string>('');
+
+  const layoutKey = useMemo(
+    () =>
+      `${graphLevel}:${selectedNodeId ?? ''}:${expandedClusterId ?? ''}:${pathMode}:${nodes.map((n) => n.id).join(',')}`,
+    [graphLevel, selectedNodeId, expandedClusterId, pathMode, nodes],
+  );
 
   const stats = useMemo(() => getGraphStats(pages), [pages]);
   const pathNodeIds = useMemo(
@@ -57,41 +73,115 @@ function GraphCanvas({ nodes, edges, focusNodeIds }: GraphProps) {
     () => (selectedNodeId ? getPathEdgePairs(selectedNodeId, pages) : []),
     [selectedNodeId, pages],
   );
-  const clusterBounds = useMemo(() => {
-    const clusters = buildClusters(pages);
-    return computeClusterBounds(clusters, nodes);
-  }, [pages, nodes]);
+
+  const visibleStats = useMemo(() => {
+    if (graphLevel === 0) {
+      return null;
+    }
+    if (visibleNodeIds === null) {
+      return stats;
+    }
+    const visibleEdges = edges.filter((edge) =>
+      shouldShowEdge(
+        edge,
+        graphLevel,
+        visibleNodeIds,
+        selectedNodeId,
+        hoveredNodeId,
+        pathMode,
+        pathNodeIds,
+      ),
+    );
+    return {
+      pages: nodes.length,
+      relationships: visibleEdges.filter((e) => e.data?.edgeType === 'relation').length,
+      clusters: stats.clusters,
+    };
+  }, [
+    graphLevel,
+    visibleNodeIds,
+    stats,
+    nodes.length,
+    edges,
+    selectedNodeId,
+    hoveredNodeId,
+    pathMode,
+    pathNodeIds,
+  ]);
+
+  const showGraph = graphLevel > 0 && nodes.length > 0;
 
   const centerOnNode = useCallback(
     (nodeId: string) => {
       const instance = reactFlowRef.current;
+      const fromProps = nodes.find((n) => n.id === nodeId);
+
       if (!instance) {
         pendingCenterRef.current = nodeId;
         return;
       }
 
-      const node = instance.getNode(nodeId);
-      if (node) {
-        instance.setCenter(node.position.x + NODE_WIDTH / 2, node.position.y + NODE_HEIGHT / 2, {
-          zoom: focusMode ? 1.08 : 1,
-          duration: 650,
-        });
+      if (!fromProps) {
+        clearCenter();
+        return;
       }
+
+      const flowNode = instance.getNode(nodeId);
+      const position = flowNode?.position ?? fromProps.position;
+
+      instance.setCenter(position.x + NODE_WIDTH / 2, position.y + NODE_HEIGHT / 2, {
+        zoom: graphLevel === 1 ? 1.05 : 0.9,
+        duration: 500,
+      });
       clearCenter();
     },
-    [clearCenter, focusMode],
+    [clearCenter, graphLevel, nodes],
   );
+
+  const fitVisibleGraph = useCallback(() => {
+    const instance = reactFlowRef.current;
+    if (!instance || nodes.length === 0) {
+      return;
+    }
+
+    if (graphLevel === 3) {
+      void instance.fitView({ padding: 0.35, duration: 400 });
+      return;
+    }
+
+    void instance.fitView({
+      padding: 0.45,
+      duration: 400,
+      nodes: nodes.map((node) => ({ id: node.id })),
+    });
+  }, [graphLevel, nodes]);
 
   const getNodeDimState = useCallback(
     (nodeId: string) => {
-      const inFocus = !focusNodeIds || focusNodeIds.has(nodeId);
       const isSelected = nodeId === selectedNodeId;
       const onPath = pathNodeIds.has(nodeId);
 
-      if (focusMode && focusNodeIds) {
+      if (pathMode) {
         return {
-          dimmed: !inFocus,
-          dimOpacity: 0.1,
+          dimmed: !onPath,
+          dimOpacity: onPath ? 1 : 0.05,
+          onPath,
+        };
+      }
+
+      if (graphLevel === 2 && visibleNodeIds?.has(nodeId)) {
+        return {
+          dimmed: false,
+          dimOpacity: isSelected ? 1 : 0.96,
+          onPath,
+        };
+      }
+
+      if (graphLevel === 1 && visibleNodeIds) {
+        const inNeighborhood = visibleNodeIds.has(nodeId);
+        return {
+          dimmed: !inNeighborhood || (!isSelected && graphLevel === 1),
+          dimOpacity: isSelected ? 1 : 0.92,
           onPath,
         };
       }
@@ -99,14 +189,14 @@ function GraphCanvas({ nodes, edges, focusNodeIds }: GraphProps) {
       if (selectedNodeId && !isSelected) {
         return {
           dimmed: true,
-          dimOpacity: onPath ? 0.75 : 0.4,
+          dimOpacity: onPath ? 0.75 : 0.05,
           onPath,
         };
       }
 
       return { dimmed: false, dimOpacity: 1, onPath };
     },
-    [focusMode, focusNodeIds, selectedNodeId, pathNodeIds],
+    [pathMode, pathNodeIds, graphLevel, visibleNodeIds, selectedNodeId],
   );
 
   useEffect(() => {
@@ -130,59 +220,92 @@ function GraphCanvas({ nodes, edges, focusNodeIds }: GraphProps) {
 
   useEffect(() => {
     setFlowEdges(
-      edges.map((edge) => {
-        const inFocus =
-          !focusNodeIds || (focusNodeIds.has(edge.source) && focusNodeIds.has(edge.target));
-        const isPathEdge = pathEdgePairs.some(
-          (pair) => pair.source === edge.source && pair.target === edge.target,
-        );
-        const baseOpacity = (edge.style?.opacity as number | undefined) ?? 1;
+      edges
+        .filter((edge) =>
+          shouldShowEdge(
+            edge,
+            graphLevel,
+            visibleNodeIds,
+            selectedNodeId,
+            hoveredNodeId,
+            pathMode,
+            pathNodeIds,
+          ),
+        )
+        .map((edge) => {
+          const isPathEdge = pathEdgePairs.some(
+            (pair) => pair.source === edge.source && pair.target === edge.target,
+          );
+          const opacity = getEdgeOpacity(
+            edge,
+            graphLevel,
+            selectedNodeId,
+            hoveredNodeId,
+            pathMode,
+            isPathEdge,
+          );
 
-        let opacity = baseOpacity;
-        if (focusMode && focusNodeIds && !inFocus) {
-          opacity = 0.1;
-        } else if (selectedNodeId && !isPathEdge) {
-          const touchesSelection =
-            edge.source === selectedNodeId || edge.target === selectedNodeId;
-          opacity = touchesSelection ? baseOpacity : baseOpacity * 0.4;
-        }
-        if (isPathEdge) {
-          opacity = 1;
-        }
-
-        return {
-          ...edge,
-          animated: edge.data?.edgeType === 'relation' || isPathEdge,
-          style: {
-            ...edge.style,
-            opacity,
-            strokeWidth: isPathEdge
-              ? ((edge.style?.strokeWidth as number) ?? 1) + 0.75
-              : edge.style?.strokeWidth,
-            transition: 'opacity 450ms ease, stroke-width 300ms ease',
-          },
-        };
-      }),
+          return {
+            ...edge,
+            animated:
+              (edge.data?.edgeType === 'relation' && opacity > 0.5) ||
+              (isPathEdge && pathMode),
+            style: {
+              ...edge.style,
+              opacity,
+              strokeWidth: isPathEdge && pathMode
+                ? ((edge.style?.strokeWidth as number) ?? 1) + 1
+                : edge.style?.strokeWidth,
+              transition: 'opacity 450ms ease, stroke-width 300ms ease',
+            },
+          };
+        }),
     );
-  }, [edges, focusNodeIds, focusMode, selectedNodeId, pathEdgePairs, setFlowEdges]);
+  }, [
+    edges,
+    graphLevel,
+    visibleNodeIds,
+    selectedNodeId,
+    hoveredNodeId,
+    pathMode,
+    pathNodeIds,
+    pathEdgePairs,
+    setFlowEdges,
+  ]);
 
   useEffect(() => {
-    if (centerOnNodeId) {
-      centerOnNode(centerOnNodeId);
+    if (!centerOnNodeId || nodes.length === 0 || graphLevel !== 1) {
+      return;
     }
-  }, [centerOnNodeId, centerOnNode]);
+
+    const nodeId = centerOnNodeId;
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => centerOnNode(nodeId));
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [centerOnNodeId, nodes, centerOnNode, graphLevel]);
 
   useEffect(() => {
-    if (focusMode && selectedNodeId) {
-      centerOnNode(selectedNodeId);
+    if (!showGraph || nodes.length === 0) {
+      return;
     }
-  }, [focusMode, selectedNodeId, centerOnNode]);
 
-  useEffect(() => {
-    if (selectedNodeId && !focusMode) {
-      centerOnNode(selectedNodeId);
+    if (lastLayoutKeyRef.current === layoutKey) {
+      return;
     }
-  }, [selectedNodeId, focusMode, centerOnNode]);
+
+    lastLayoutKeyRef.current = layoutKey;
+    const timer = window.setTimeout(() => {
+      if (graphLevel === 1 && selectedNodeId) {
+        centerOnNode(selectedNodeId);
+        return;
+      }
+      fitVisibleGraph();
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [layoutKey, showGraph, nodes.length, graphLevel, selectedNodeId, centerOnNode, fitVisibleGraph]);
 
   const handleInit = useCallback(
     (instance: ReactFlowInstance<GraphNode, GraphEdge>) => {
@@ -198,14 +321,20 @@ function GraphCanvas({ nodes, edges, focusNodeIds }: GraphProps) {
 
   const handleNodeClick: NodeMouseHandler<GraphNode> = useCallback(
     (_, node) => {
-      selectNode(node.id);
+      if (node.id === selectedNodeId && graphLevel === 1) {
+        selectNode(node.id);
+        return;
+      }
+      exploreNode(node.id);
     },
-    [selectNode],
+    [exploreNode, selectNode, selectedNodeId, graphLevel],
   );
 
   const handlePaneClick = useCallback(() => {
-    selectNode(null);
-  }, [selectNode]);
+    if (graphLevel === 3) {
+      selectNode(null);
+    }
+  }, [graphLevel, selectNode]);
 
   const handleNodeDragStart: OnNodeDrag<GraphNode> = useCallback((_, node) => {
     dragOriginRef.current = { id: node.id, position: { ...node.position } };
@@ -222,47 +351,53 @@ function GraphCanvas({ nodes, edges, focusNodeIds }: GraphProps) {
 
       const moved =
         origin.position.x !== node.position.x || origin.position.y !== node.position.y;
-      if (moved) {
+      if (moved && graphLevel === 3) {
         commitPositionDrag(node.id, node.position);
       }
     },
-    [commitPositionDrag],
+    [commitPositionDrag, graphLevel],
   );
 
   return (
     <div className="relative h-full w-full bg-canvas">
-      <ReactFlow
-        nodes={flowNodes}
-        edges={flowEdges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodeClick={handleNodeClick}
-        onPaneClick={handlePaneClick}
-        onNodeDragStart={handleNodeDragStart}
-        onNodeDragStop={handleNodeDragStop}
-        onInit={handleInit}
-        fitView
-        fitViewOptions={{ padding: 0.4 }}
-        minZoom={0.08}
-        maxZoom={1.4}
-        proOptions={{ hideAttribution: true }}
-      >
-        <ClusterBackground clusters={clusterBounds} />
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={32}
-          size={1}
-          color="var(--canvas-dot)"
-        />
-        <Controls showInteractive={false} position="bottom-left" className="!left-5 !bottom-5" />
-      </ReactFlow>
+      {graphLevel === 0 && <CanvasHome />}
 
-      <GraphStats
-        nodes={stats.pages}
-        relationships={stats.relationships}
-        clusters={stats.clusters}
-      />
+      {showGraph && (
+        <ReactFlow
+          nodes={flowNodes}
+          edges={flowEdges}
+          nodeTypes={nodeTypes}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeClick={handleNodeClick}
+          onPaneClick={handlePaneClick}
+          onNodeDragStart={handleNodeDragStart}
+          onNodeDragStop={handleNodeDragStop}
+          onInit={handleInit}
+          minZoom={0.08}
+          maxZoom={1.4}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={32}
+            size={1}
+            color="var(--canvas-dot)"
+          />
+          <Controls showInteractive={false} position="bottom-left" className="!left-5 !bottom-5" />
+        </ReactFlow>
+      )}
+
+      <BreadcrumbNav />
+      <GlobalViewWarning />
+
+      {visibleStats && graphLevel > 0 && (
+        <GraphStats
+          nodes={visibleStats.pages}
+          relationships={visibleStats.relationships}
+          clusters={visibleStats.clusters}
+        />
+      )}
     </div>
   );
 }

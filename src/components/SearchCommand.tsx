@@ -9,7 +9,7 @@ import {
   CommandList,
   CommandShortcut,
 } from '@/components/ui/command';
-import { getPageMeta } from '@/lib/page-meta';
+import { getPageIcon } from '@/lib/page-display';
 
 function highlightMatch(text: string, query: string) {
   if (!query.trim()) {
@@ -28,7 +28,9 @@ function highlightMatch(text: string, query: string) {
   return (
     <span>
       {before}
-      <mark className="rounded-sm bg-blue-100 px-0.5 text-foreground">{match}</mark>
+      <mark className="rounded-sm bg-primary/15 px-0.5 text-foreground dark:bg-primary/25">
+        {match}
+      </mark>
       {after}
     </span>
   );
@@ -75,33 +77,30 @@ export default function SearchCommand() {
       description="Jump to any page in your mind map"
       className="max-w-lg"
     >
-      <CommandInput
-        placeholder="Search pages..."
-        value={query}
-        onValueChange={setQuery}
-      />
+      <CommandInput placeholder="Search pages..." value={query} onValueChange={setQuery} />
       <CommandList>
         <CommandEmpty>No pages found.</CommandEmpty>
         <CommandGroup heading="Pages">
-          {filteredPages.map((page) => {
-            const meta = getPageMeta(page.title);
-            return (
-              <CommandItem
-                key={page.id}
-                value={page.title}
-                onSelect={() => selectAndCenter(page.id)}
-                className="gap-3 rounded-lg py-3"
-              >
-                <span className="text-lg leading-none">{meta.emoji}</span>
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm font-medium">
-                    {highlightMatch(page.title, query)}
+          {filteredPages.map((page) => (
+            <CommandItem
+              key={page.id}
+              value={page.title}
+              onSelect={() => selectAndCenter(page.id)}
+              className="gap-3 rounded-lg py-3"
+            >
+              <span className="text-lg leading-none">{getPageIcon(page)}</span>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-sm font-medium">
+                  {highlightMatch(page.title, query)}
+                </span>
+                {page.tags.length > 0 && (
+                  <span className="text-xs capitalize text-muted-foreground">
+                    {page.tags.join(', ')}
                   </span>
-                  <span className="text-xs text-muted-foreground">{meta.type}</span>
-                </div>
-              </CommandItem>
-            );
-          })}
+                )}
+              </div>
+            </CommandItem>
+          ))}
         </CommandGroup>
       </CommandList>
       <div className="border-t px-4 py-2.5">

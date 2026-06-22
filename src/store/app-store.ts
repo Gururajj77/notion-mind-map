@@ -1,5 +1,13 @@
 import { create } from 'zustand';
 import type { NotionPage } from '../types/notion';
+import type { GraphLevel } from '../types/exploration';
+import {
+  loadPinnedIds,
+  loadRecentIds,
+  pushRecentId,
+  savePinnedIds,
+} from '../lib/local-persistence';
+import { applyDarkMode, getInitialDarkMode } from '../lib/theme';
 
 export type NodePosition = { x: number; y: number };
 export type PositionOverrides = Record<string, NodePosition>;
@@ -7,18 +15,29 @@ export type PositionOverrides = Record<string, NodePosition>;
 interface AppState {
   pages: NotionPage[];
   selectedNodeId: string | null;
-  focusMode: boolean;
+  graphLevel: GraphLevel;
+  expandedClusterId: string | null;
+  pathMode: boolean;
   searchOpen: boolean;
   centerOnNodeId: string | null;
   darkMode: boolean;
+  hoveredNodeId: string | null;
+  pinnedNodeIds: string[];
+  recentNodeIds: string[];
   positionOverrides: PositionOverrides;
   positionPast: PositionOverrides[];
   positionFuture: PositionOverrides[];
   setPages: (pages: NotionPage[]) => void;
   selectNode: (id: string | null) => void;
-  setFocusMode: (enabled: boolean) => void;
+  exploreNode: (id: string) => void;
+  goHome: () => void;
+  expandCluster: (clusterId: string, rootId: string) => void;
+  setGraphLevel: (level: GraphLevel) => void;
+  setPathMode: (enabled: boolean) => void;
   setSearchOpen: (open: boolean) => void;
   setDarkMode: (enabled: boolean) => void;
+  setHoveredNodeId: (id: string | null) => void;
+  togglePin: (id: string) => void;
   selectAndCenter: (id: string) => void;
   clearCenter: () => void;
   commitPositionDrag: (nodeId: string, position: NodePosition) => void;
@@ -31,23 +50,92 @@ interface AppState {
 export const useAppStore = create<AppState>((set, get) => ({
   pages: [],
   selectedNodeId: null,
-  focusMode: false,
+  graphLevel: 0,
+  expandedClusterId: null,
+  pathMode: false,
   searchOpen: false,
   centerOnNodeId: null,
-  darkMode: false,
+  darkMode: getInitialDarkMode(),
+  hoveredNodeId: null,
+  pinnedNodeIds: loadPinnedIds(),
+  recentNodeIds: loadRecentIds(),
   positionOverrides: {},
   positionPast: [],
   positionFuture: [],
   setPages: (pages) => set({ pages }),
-  selectNode: (id) => set({ selectedNodeId: id }),
-  setFocusMode: (enabled) => set({ focusMode: enabled }),
+  selectNode: (id) => {
+    if (id) {
+      const recent = pushRecentId(id);
+      set({ selectedNodeId: id, recentNodeIds: recent });
+      return;
+    }
+    set({ selectedNodeId: null });
+  },
+  exploreNode: (id) => {
+    const recent = pushRecentId(id);
+    set({
+      selectedNodeId: id,
+      graphLevel: 1,
+      expandedClusterId: null,
+      pathMode: false,
+      centerOnNodeId: id,
+      recentNodeIds: recent,
+      searchOpen: false,
+    });
+  },
+  goHome: () =>
+    set({
+      selectedNodeId: null,
+      graphLevel: 0,
+      expandedClusterId: null,
+      pathMode: false,
+      centerOnNodeId: null,
+      hoveredNodeId: null,
+    }),
+  expandCluster: (clusterId, rootId) => {
+    const recent = pushRecentId(rootId);
+    set({
+      graphLevel: 2,
+      expandedClusterId: clusterId,
+      selectedNodeId: rootId,
+      pathMode: false,
+      centerOnNodeId: null,
+      recentNodeIds: recent,
+      searchOpen: false,
+    });
+  },
+  setGraphLevel: (level) => {
+    if (level === 0) {
+      get().goHome();
+      return;
+    }
+    if (level === 3) {
+      set({ graphLevel: 3, pathMode: false, expandedClusterId: null });
+      return;
+    }
+    set({ graphLevel: level });
+  },
+  setPathMode: (enabled) =>
+    set({
+      pathMode: enabled,
+      graphLevel: enabled && get().selectedNodeId ? 1 : get().graphLevel,
+      expandedClusterId: enabled ? null : get().expandedClusterId,
+    }),
   setSearchOpen: (open) => set({ searchOpen: open }),
   setDarkMode: (enabled) => {
-    document.documentElement.classList.toggle('dark', enabled);
+    applyDarkMode(enabled);
     set({ darkMode: enabled });
   },
-  selectAndCenter: (id) =>
-    set({ selectedNodeId: id, centerOnNodeId: id, searchOpen: false }),
+  setHoveredNodeId: (id) => set({ hoveredNodeId: id }),
+  togglePin: (id) => {
+    const current = get().pinnedNodeIds;
+    const next = current.includes(id)
+      ? current.filter((item) => item !== id)
+      : [...current, id];
+    savePinnedIds(next);
+    set({ pinnedNodeIds: next });
+  },
+  selectAndCenter: (id) => get().exploreNode(id),
   clearCenter: () => set({ centerOnNodeId: null }),
   commitPositionDrag: (nodeId, position) => {
     set((state) => {
